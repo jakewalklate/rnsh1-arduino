@@ -679,6 +679,50 @@ class ArduinoSerialClient:
         if settings:
             self.send_command(f"CONFIG,{','.join(settings)}")
 
+    def wait_for_frequency_ack(
+        self,
+        requested_hz,
+        timeout_seconds=DEFAULT_COMMAND_ACK_TIMEOUT_SECONDS,
+    ):
+        """Wait for the firmware to confirm the excitation frequency sent by configure().
+
+        Returns the frequency the board reports it is now running. The firmware prints
+        "# excitation Hz set to: 5.000" before "# CONFIG_ACK" when it accepts a
+        frequency, and "# CONFIG_REJECTED ..." when it does not. A CONFIG_ACK with no
+        frequency line means the firmware ignored the setting (older builds could not
+        parse EXCITATION_HZ), so the board would keep running its previous frequency."""
+        deadline = monotonic() + float(timeout_seconds)
+        observed = []
+
+        while monotonic() < deadline:
+            self.read_available()
+            for notice in self.drain_notices():
+                observed.append(notice)
+                upper = notice.upper()
+                if "CONFIG_REJECTED" in upper:
+                    raise ArduinoSerialError(
+                        f"The Arduino rejected {float(requested_hz):g} Hz: {notice}"
+                    )
+                if "EXCITATION HZ SET TO:" in upper:
+                    try:
+                        return float(notice.split(":", 1)[1])
+                    except ValueError:
+                        continue
+                if "CONFIG_ACK" in upper:
+                    raise ArduinoSerialError(
+                        f"The Arduino did not apply the {float(requested_hz):g} Hz "
+                        "excitation frequency, so it would record at the wrong frequency. "
+                        "Upload the current firmware "
+                        "(backend/device/firmware/arduino_connection) and try again."
+                    )
+            sleep(0.02)
+
+        detail = f" Notices received: {'; '.join(observed[-5:])}" if observed else ""
+        raise ArduinoSerialError(
+            f"The Arduino did not confirm the {float(requested_hz):g} Hz excitation "
+            f"frequency within {float(timeout_seconds):g} s.{detail}"
+        )
+
     def read_available(self, max_bytes=8192, apply_flow_gain=True):
         with self._io_lock:
             if not self.is_connected:

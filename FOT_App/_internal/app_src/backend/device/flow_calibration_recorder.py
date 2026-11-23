@@ -18,7 +18,7 @@ from backend.processing.FlowGainCalibration import (
     MIN_BASELINE_SECONDS,
     score_stroke,
 )
-from backend.processing.FOTImpedance import SAMPLE_HZ
+from backend.processing.FOTImpedance import EXCITATION_HZ, SAMPLE_HZ
 
 # Live trace shown while calibrating, so the operator can see the A2 pulse and the
 # zero before trusting a stroke. Display only.
@@ -73,6 +73,10 @@ class FlowCalibrationRecorder:
                 return
 
         self.serial_client.reset_input_buffer()
+        # Strokes are integrated at SAMPLE_HZ, and the board's sample rate follows its
+        # excitation frequency (x70), which a patient recording may have changed.
+        self.serial_client.configure(excitation_hz=EXCITATION_HZ, sample_hz=SAMPLE_HZ)
+        self.serial_client.wait_for_frequency_ack(EXCITATION_HZ)
         self.serial_client.set_flow_calibration_mode(True)
 
         # The firmware handles serial commands whether or not it is streaming, so the

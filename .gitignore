@@ -2,3 +2,9 @@ User Manuals
 CAD Files
 Documentation
 FOT_App_Windows.zip
+FOT_App/.venv/
+__pycache__/
+FOT_App/.build/
+FOT_App/_internal/app_src/data/desktop.log
+FOT_App/_internal/app_src/data/desktop_shortcut_created
+FOT_App/FOT App.app/

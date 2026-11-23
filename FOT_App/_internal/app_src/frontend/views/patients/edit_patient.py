@@ -2,6 +2,7 @@ import streamlit as st
 from backend.database.storage import get_patient, update_patient
 from utils import validate_patient
 from datetime import datetime
+from frontend.components.ui import card
 from frontend.navigation import goto
 
 # Edit existing patient form
@@ -14,7 +15,8 @@ def edit_patient():
     st.title("Edit Patient Details")
     st.caption("Make edits to patient details below. Ensure all fields are filled correctly before saving changes.")
 
-    colA, colB = st.columns(2, gap="medium")
+    form_card = card("edit-patient", "accent")
+    colA, colB = form_card.columns(2, gap="medium")
 
     with colA:
         first_name = st.text_input(
@@ -99,7 +101,7 @@ def edit_patient():
             disabled=(smoking_status != "Smoker")
         )
 
-    col1, col2 = st.columns(2, gap="medium")
+    col1, col2 = form_card.columns(2, gap="medium")
 
     with col1:
 

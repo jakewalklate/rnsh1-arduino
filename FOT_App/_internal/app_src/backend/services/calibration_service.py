@@ -18,6 +18,7 @@ from backend.config import (
     RAW_MEASUREMENT_DATA_DIR,
 )
 from backend.device.calibration_recorder import CalibrationPointRecorder
+from backend.device.gain_phase_sweep import GainPhaseSweep
 from backend.device.serial_device import ArduinoSerialClient, list_serial_ports
 from backend.processing.FOTImpedance import (
     EXCITATION_HZ,
@@ -26,6 +27,11 @@ from backend.processing.FOTImpedance import (
     load_calibration,
     save_bias_calibration,
     save_calibration,
+)
+from backend.processing.FOTGainPhaseCalibration import (
+    FREQUENCIES_HZ,
+    current_calibration,
+    save_results as save_gain_phase_results,
 )
 from backend.processing.FOTCalibrationPresets import (
     PERIODS,
@@ -57,6 +63,7 @@ from backend.processing.FOTTubeCalibration import (
 
 
 CALIBRATION_DATA_DIR = Path(RAW_MEASUREMENT_DATA_DIR).parent / "calibration"
+CALIBRATION_ARCHIVE_DIR = CALIBRATION_DATA_DIR / "archive"
 
 
 class CalibrationService:
@@ -78,7 +85,11 @@ class CalibrationService:
         # Phase-angle calibration state (runs before the bias sweep).
         self.phase_result = None
         self.phase_stale_sweep = False
-        # Which tab owns the running capture: "sweep", "check" or "phase". Every tab
+        # Gain & phase calibration: one result per frequency, kept until saved or
+        # discarded.
+        self.gain_phase_results = None
+        # Which tab owns the running capture: "sweep", "check", "phase" or
+        # "gain_phase". Every tab
         # renders on every script run and they share this one service, so without it
         # whichever renders first would commit another tab's finished capture.
         self.capture_purpose = None
@@ -437,6 +448,58 @@ class CalibrationService:
 
     def clear_phase_result(self):
         self.phase_result = None
+
+    # ------------------------------------------------ gain & phase calibration
+
+    def start_gain_phase(self, reference_resistance, port=None, frequencies=FREQUENCIES_HZ):
+        """Record the reference load at every frequency in turn. `reference_resistance`
+        is in cmH2O·s/L."""
+        if not self.hardware_enabled:
+            raise RuntimeError("Arduino access is disabled in backend/config.py.")
+        if float(reference_resistance) <= 0:
+            raise ValueError("Enter the resistance printed on the test object.")
+        self.gain_phase_results = None
+        return self._start_recorder(
+            "gain_phase",
+            lambda client: GainPhaseSweep(
+                client,
+                reference_resistance=reference_resistance,
+                frequencies=frequencies,
+            ),
+            port=port,
+        )
+
+    def commit_gain_phase(self):
+        """Move a finished sweep's results onto the service and free the capture."""
+        if self.recorder is None or self.capture_purpose != "gain_phase":
+            return None
+        snapshot = self.recorder.snapshot()
+        if snapshot["state"] not in ("done", "error"):
+            return None
+        self.gain_phase_results = snapshot["results"]
+        recorder = self.recorder
+        self.recorder = None
+        self.capture_purpose = None
+        recorder.cancel()
+        self._stop_streaming()
+        return self.gain_phase_results
+
+    def save_gain_phase(self):
+        """Save every frequency that passed. Returns the frequencies saved."""
+        if not self.gain_phase_results:
+            raise ValueError("There is no calibration to save.")
+        saved = save_gain_phase_results(self.gain_phase_results, CALIBRATION_ARCHIVE_DIR)
+        if not saved:
+            raise ValueError("No frequency passed, so nothing was saved.")
+        self.gain_phase_results = None
+        return saved
+
+    def discard_gain_phase(self):
+        self.gain_phase_results = None
+
+    @staticmethod
+    def gain_phase_in_use(frequencies=FREQUENCIES_HZ):
+        return [current_calibration(hz) for hz in frequencies]
 
     # ------------------------------------------------------- daily system check
 

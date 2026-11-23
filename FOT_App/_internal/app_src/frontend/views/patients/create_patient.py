@@ -7,8 +7,6 @@ def create_patient_tab():
     
     form_key = st.session_state.form_version
 
-    st.write("Enter patient details below.")
-
     colA, colB = st.columns(2, gap="small")
     with colA:
         first_name = st.text_input(

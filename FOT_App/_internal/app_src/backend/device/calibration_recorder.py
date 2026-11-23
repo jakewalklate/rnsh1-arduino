@@ -22,6 +22,7 @@ import numpy as np
 from backend.processing.FOTImpedance import (
     BLOCK_SAMPLES,
     BLOCKS_PER_WINDOW,
+    EXCITATION_HZ,
     LUT_SIZE,
     SAMPLE_HZ,
     analyse_blocks,
@@ -32,7 +33,6 @@ from backend.processing.FOTTubeCalibration import SETTLE_BLOCKS
 # Rolling trace shown live while a point is captured, so the operator can see the
 # signal is healthy before trusting the point. Display only — never fed to the fit.
 TRACE_SECONDS = 6.0
-TRACE_SAMPLES = int(TRACE_SECONDS * SAMPLE_HZ)
 TRACE_DISPLAY_HZ = 60
 
 # Give up if the device goes quiet for this long, rather than waiting forever.
@@ -56,6 +56,7 @@ class CalibrationPointRecorder:
         window_blocks=BLOCKS_PER_WINDOW,
         tier="corrected",
         retain_blocks=False,
+        excitation_hz=EXCITATION_HZ,
     ):
         """`tier` selects which impedance the point reports:
           "raw"            nothing applied — for the phase calibration, which SOLVES
@@ -70,6 +71,10 @@ class CalibrationPointRecorder:
         `retain_blocks` keeps the settled BlockPhasors on `.collected_blocks`. The
         phase calibration needs them: it derives the correction angle from the raw
         phasor, so no already-rotated summary will do.
+
+        `excitation_hz` is the frequency the board is set to for this capture. A block
+        is always LUT_SIZE samples per cycle, so the lock-in works the same at any
+        frequency; only the sample rate, and so how long a block takes, changes.
         """
         self.serial_client = serial_client
         self.cpap_value = cpap_value
@@ -80,6 +85,8 @@ class CalibrationPointRecorder:
         self.window_blocks = int(window_blocks)
         self.tier = tier
         self.retain_blocks = bool(retain_blocks)
+        self.excitation_hz = float(excitation_hz)
+        self.sample_hz = self.excitation_hz * LUT_SIZE
 
         self.state = "idle"          # idle | settling | collecting | done | error
         self.message = ""
@@ -95,8 +102,9 @@ class CalibrationPointRecorder:
         self._block_flow = []
         self._live_blocks = deque(maxlen=BLOCKS_PER_WINDOW)
         self._dropped_blocks = 0
-        self._trace_pressure = deque(maxlen=TRACE_SAMPLES)
-        self._trace_flow = deque(maxlen=TRACE_SAMPLES)
+        trace_samples = int(TRACE_SECONDS * self.sample_hz)
+        self._trace_pressure = deque(maxlen=trace_samples)
+        self._trace_flow = deque(maxlen=trace_samples)
         self._live_result = None
 
         self._lock = Lock()
@@ -124,6 +132,7 @@ class CalibrationPointRecorder:
         # The buffer purge drops bytes queued before this capture, so the first block
         # is not half of someone else's.
         self.serial_client.reset_input_buffer()
+        self._set_analysis_frequency()
         # Do not start the capture clock until the firmware confirms it handled
         # START. A successful Windows write alone does not prove the command reached
         # the board.
@@ -198,12 +207,12 @@ class CalibrationPointRecorder:
             return [], [], []
         pressure = pressure[-n:]
         flow = flow[-n:]
-        stride = max(1, int(round(SAMPLE_HZ / TRACE_DISPLAY_HZ)))
+        stride = max(1, int(round(self.sample_hz / TRACE_DISPLAY_HZ)))
         idx = list(range(0, n, stride))
         if idx[-1] != n - 1:
             idx.append(n - 1)
         # x axis ends at 0 = now, so the trace scrolls right-to-left.
-        times = [(i - (n - 1)) / SAMPLE_HZ for i in idx]
+        times = [(i - (n - 1)) / self.sample_hz for i in idx]
         return times, [pressure[i] for i in idx], [flow[i] for i in idx]
 
     # ------------------------------------------------------------------- thread
@@ -268,6 +277,15 @@ class CalibrationPointRecorder:
         self.collected_blocks = []
         self.last_error = None
 
+    def _set_analysis_frequency(self):
+        """The board keeps whatever frequency it was last set to (a patient
+        recording can choose 5, 11 or 19 Hz), so set this capture's frequency
+        explicitly and wait for the firmware to confirm."""
+        self.serial_client.configure(
+            excitation_hz=self.excitation_hz, sample_hz=self.sample_hz
+        )
+        self.serial_client.wait_for_frequency_ack(self.excitation_hz)
+
     def _recover_serial(self, original_error):
         """Recover a Windows USB serial failure without accepting discontinuous data."""
         last_error = original_error
@@ -279,6 +297,7 @@ class CalibrationPointRecorder:
                 sleep(SERIAL_RECOVERY_DELAY_S)
                 self.serial_client.connect()
                 self.serial_client.reset_input_buffer()
+                self._set_analysis_frequency()
                 self.serial_client.start_streaming(require_ack=True)
             except Exception as error:
                 last_error = error

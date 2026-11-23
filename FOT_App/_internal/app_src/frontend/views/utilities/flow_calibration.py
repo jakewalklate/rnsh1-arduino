@@ -20,6 +20,7 @@ from backend.processing.FlowGainCalibration import (
     TARGET_STROKES,
 )
 from backend.services.flow_calibration_service import FlowCalibrationService
+from frontend.components.ui import card, card_header, hero, pill, steps
 from frontend.services.recording_service import get_recording_service
 from frontend.views.utilities.calibration import (
     _render_port_selector,
@@ -50,11 +51,14 @@ def _render_saved_calibration(service):
     push, pull = service.active_gains()
     firmware_push, firmware_pull = service.firmware_gains()
 
-    with st.expander("Flow gains currently in use", expanded=False):
+    with card("flow-gains"):
+        card_header(
+            "Flow gains in use",
+            "L/(s·cmH₂O), applied to every flow sample the app reads.",
+        )
         cols = st.columns(2)
         cols[0].metric("Push (dp ≥ 0)", f"{push:.6f}")
         cols[1].metric("Pull (dp < 0)", f"{pull:.6f}")
-        st.caption("L/(s·cmH₂O), applied to every flow sample the app reads.")
 
         if not saved:
             st.info(
@@ -168,101 +172,96 @@ def _render_strokes(service):
         return
 
     summary = service.summary()
-    st.divider()
-    st.markdown("#### Accepted strokes")
-
-    frame = pd.DataFrame([
-        {
-            "#": s["number"],
-            "Direction": s["direction"],
-            "Active s": round(s["active_duration_s"], 2),
-            "Zero": round(s["baseline_cmH2O"], 4),
-            "∫dp": round(s["dp_integral_cmH2O_s"], 4),
-            "Gain": round(s["gain_Lps_per_cmH2O"], 6),
-            "Dev %": round(deviation, 2),
-        }
-        for s, deviation in zip(strokes, summary["deviations"])
-    ])
-    st.dataframe(frame, width="stretch", hide_index=True)
-
-    cols = st.columns(4)
-    cols[0].metric("Median gain", f"{summary['median_gain']:.6f}")
-    cols[1].metric(
-        "Push", "—" if summary["push_gain"] is None else f"{summary['push_gain']:.6f}"
-    )
-    cols[2].metric(
-        "Pull", "—" if summary["pull_gain"] is None else f"{summary['pull_gain']:.6f}"
-    )
-    cols[3].metric("Worst spread", f"{summary['worst_deviation_pct']:.2f}%")
-
-    if summary["consistency_pass"]:
-        st.success(service.status_text())
-    elif summary["complete"]:
-        st.warning(service.status_text())
-    else:
-        st.info(service.status_text())
-
-    manage = st.columns([2, 1, 1])
-    with manage[0]:
-        remove = st.number_input(
-            "Remove stroke #", min_value=1, max_value=len(strokes), value=len(strokes),
-            step=1, key="flowcal_remove_number",
-        )
-    with manage[1]:
-        st.write("")
-        if st.button("Remove", width="stretch", key="flowcal_remove"):
-            service.remove_stroke(int(remove))
-            st.rerun()
-    with manage[2]:
-        st.write("")
-        if st.button("Clear all", width="stretch", key="flowcal_clear"):
-            service.clear_strokes()
-            st.rerun()
-
-    st.divider()
-    notes = st.text_input(
-        "Notes (optional)", key="flowcal_notes",
-        placeholder="e.g. new flowhead, syringe serial, who ran it",
-    )
-
-    one_sided = summary["push_gain"] is None or summary["pull_gain"] is None
-    if one_sided:
-        st.warning(
-            "Record at least one push AND one pull stroke before saving — a "
-            "one-directional calibration would leave the other direction on the "
-            "firmware default."
-        )
-    elif not summary["consistency_pass"]:
-        st.caption(
-            f"You can still save, but the strokes disagree by more than "
-            f"{CONSISTENCY_TOLERANCE_PCT:g}% or fewer than {TARGET_STROKES} were "
-            f"recorded. Saving applies these gains to every measurement immediately."
+    with card("flow-strokes", "accent"):
+        card_header(
+            f"Accepted strokes: {len(strokes)} of {TARGET_STROKES}",
+            "Each stroke gives one gain. They should agree closely before you save.",
         )
 
-    if st.button("Save and apply flow gains", type="primary", disabled=one_sided,
-                 key="flowcal_save"):
-        try:
-            path, payload = service.save(notes=notes)
-        except ValueError as error:
-            st.error(str(error))
+        frame = pd.DataFrame([
+            {
+                "#": s["number"],
+                "Direction": s["direction"],
+                "Active s": round(s["active_duration_s"], 2),
+                "Zero": round(s["baseline_cmH2O"], 4),
+                "∫dp": round(s["dp_integral_cmH2O_s"], 4),
+                "Gain": round(s["gain_Lps_per_cmH2O"], 6),
+                "Dev %": round(deviation, 2),
+            }
+            for s, deviation in zip(strokes, summary["deviations"])
+        ])
+        st.dataframe(frame, width="stretch", hide_index=True)
+
+        cols = st.columns(4)
+        cols[0].metric("Median gain", f"{summary['median_gain']:.6f}")
+        cols[1].metric(
+            "Push", "—" if summary["push_gain"] is None else f"{summary['push_gain']:.6f}"
+        )
+        cols[2].metric(
+            "Pull", "—" if summary["pull_gain"] is None else f"{summary['pull_gain']:.6f}"
+        )
+        cols[3].metric("Worst spread", f"{summary['worst_deviation_pct']:.2f}%")
+
+        if summary["consistency_pass"]:
+            st.success(service.status_text())
+        elif summary["complete"]:
+            st.warning(service.status_text())
         else:
-            st.success(
-                f"Saved to {path.name}. Push {payload['flow_gain_pos']:.6f}, "
-                f"pull {payload['flow_gain_neg']:.6f} — applied from the next "
-                f"sample onward, no restart needed."
+            st.info(service.status_text())
+
+        manage = st.columns([2, 1, 1])
+        with manage[0]:
+            remove = st.number_input(
+                "Remove stroke #", min_value=1, max_value=len(strokes), value=len(strokes),
+                step=1, key="flowcal_remove_number",
             )
-            st.rerun()
+        with manage[1]:
+            st.write("")
+            if st.button("Remove", width="stretch", key="flowcal_remove"):
+                service.remove_stroke(int(remove))
+                st.rerun()
+        with manage[2]:
+            st.write("")
+            if st.button("Clear all", width="stretch", key="flowcal_clear"):
+                service.clear_strokes()
+                st.rerun()
+
+        notes = st.text_input(
+            "Notes (optional)", key="flowcal_notes",
+            placeholder="e.g. new flowhead, syringe serial, who ran it",
+        )
+
+        one_sided = summary["push_gain"] is None or summary["pull_gain"] is None
+        if one_sided:
+            st.warning(
+                "Record at least one push AND one pull stroke before saving — a "
+                "one-directional calibration would leave the other direction on the "
+                "firmware default."
+            )
+        elif not summary["consistency_pass"]:
+            st.caption(
+                f"You can still save, but the strokes disagree by more than "
+                f"{CONSISTENCY_TOLERANCE_PCT:g}% or fewer than {TARGET_STROKES} were "
+                f"recorded. Saving applies these gains to every measurement immediately."
+            )
+
+        if st.button("Save and apply flow gains", type="primary", disabled=one_sided,
+                     key="flowcal_save"):
+            try:
+                path, payload = service.save(notes=notes)
+            except ValueError as error:
+                st.error(str(error))
+            else:
+                st.success(
+                    f"Saved to {path.name}. Push {payload['flow_gain_pos']:.6f}, "
+                    f"pull {payload['flow_gain_neg']:.6f} — applied from the next "
+                    f"sample onward, no restart needed."
+                )
+                st.rerun()
 
 
 def flow_calibration_tab():
-    st.markdown(
-        f"Push and pull a {SYRINGE_VOLUME_L:g} L syringe through the pneumotach "
-        f"{TARGET_STROKES} times. Each stroke moves a known volume, so the integral "
-        f"of differential pressure across it gives the pressure-to-flow gain."
-    )
-
     service = get_flow_calibration_service()
-    _render_saved_calibration(service)
 
     recording_service = get_recording_service()
     busy_reason = None
@@ -281,43 +280,68 @@ def flow_calibration_tab():
         render=False,
     )
 
-    if not service.is_active:
-        st.caption(
-            "Before starting, remove the patient circuit and fit the syringe. "
-            "The session silences the speaker and reads raw differential pressure. "
-            "Finishing the session restores normal device operation."
-        )
-        if busy_reason:
-            st.warning(busy_reason)
-        if st.button("Start calibration session", type="primary",
-                     disabled=bool(busy_reason) or port is None,
-                     key="flowcal_start"):
-            try:
-                # The other calibration tab holds its own connection to the same
-                # port, and only one program can have it open.
-                get_calibration_service().release_device()
-                service.start_session(port)
-            except Exception as error:
-                st.error(_port_error_text(error, port))
-            else:
-                st.rerun()
-        st.divider()
-        st.markdown("**Device Connection Status**")
-        _render_port_selector(
-            service, disabled=bool(busy_reason), key_prefix="flowcal"
-        )
-        return
-
-    st.success(
-        "Session active — speaker silenced, streaming raw A2 differential pressure."
+    hero(
+        "Flow Calibration",
+        f"Push and pull a {SYRINGE_VOLUME_L:g} L syringe through the pneumotach "
+        f"{TARGET_STROKES} times. Each stroke moves a known volume, which gives the "
+        "pressure-to-flow gain.",
+        pills=(
+            pill(f"Device on {port}", "pass") if port else pill("No device found", "fail"),
+            pill("Session active", "info") if service.is_active
+            else pill("Saved calibration", "pass") if service.saved_calibration()
+            else pill("Using firmware defaults", "neutral"),
+        ),
     )
-    if st.button("Finish session and restore normal mode", key="flowcal_end"):
-        service.end_session()
-        st.rerun()
 
-    _render_session(service)
-    _render_strokes(service)
+    left, right = st.columns([5, 4], gap="medium")
+    with right:
+        _render_saved_calibration(service)
 
-    st.divider()
-    st.markdown("**Device Connection Status**")
-    _render_port_selector(service, disabled=True, key_prefix="flowcal")
+    with left:
+        if not service.is_active:
+            with card("flow-start", "accent"):
+                card_header("Start a session")
+                steps([
+                    "Remove the patient circuit and fit the syringe.",
+                    "Press Start. The speaker goes quiet and raw pressure is shown.",
+                    f"Do {TARGET_STROKES} full strokes, alternating push and pull.",
+                ])
+                if busy_reason:
+                    st.warning(busy_reason)
+                if st.button("Start calibration session", type="primary",
+                             width="stretch",
+                             disabled=bool(busy_reason) or port is None,
+                             key="flowcal_start"):
+                    try:
+                        # The other calibration tab holds its own connection to the
+                        # same port, and only one program can have it open.
+                        get_calibration_service().release_device()
+                        service.start_session(port)
+                    except Exception as error:
+                        st.error(_port_error_text(error, port))
+                    else:
+                        st.rerun()
+                if port is None and not busy_reason:
+                    st.info("Connect the device to start. See Device connection below.")
+        else:
+            with card("flow-session", "accent"):
+                card_header(
+                    "Calibration session",
+                    "Speaker silenced, streaming raw A2 differential pressure.",
+                )
+                _render_session(service)
+                if st.button("Finish session and restore normal mode",
+                             key="flowcal_end"):
+                    service.end_session()
+                    st.rerun()
+
+    if service.is_active:
+        _render_strokes(service)
+
+    with card("flow-device", "muted"):
+        card_header("Device connection")
+        _render_port_selector(
+            service,
+            disabled=bool(busy_reason) or service.is_active,
+            key_prefix="flowcal",
+        )

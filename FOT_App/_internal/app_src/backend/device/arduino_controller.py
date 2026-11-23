@@ -14,6 +14,7 @@ from backend.config import (
     DEFAULT_DAC_AMPLITUDE,
     DEFAULT_EXCITATION_HZ,
     DEFAULT_SAMPLE_HZ,
+    SAMPLES_PER_EXCITATION_CYCLE,
 )
 from backend.device.measurement_acquisition import MeasurementSerialRecorder
 from backend.device.serial_device import ArduinoSerialClient
@@ -50,6 +51,8 @@ class ArduinoController:
         )
         self.send_device_commands = send_device_commands
         self.recorder = None
+        # The frequency the Arduino confirmed for the current recording.
+        self.excitation_hz = None
 
     @property
     def is_connected(self):
@@ -84,6 +87,10 @@ class ArduinoController:
                 dac_amplitude=dac_amplitude,
                 cpap_pressure_cmH2O=cpap_pressure_cmH2O,
             )
+            if excitation_hz is not None:
+                self.excitation_hz = self.client.wait_for_frequency_ack(excitation_hz)
+        else:
+            self.excitation_hz = excitation_hz
 
     def prepare_for_measurement_start(self):
         if self.is_recording:
@@ -97,9 +104,18 @@ class ArduinoController:
 
         self.client.reset_input_buffer()
 
-    def start_measurement(self, measurement_id, cpap_pressure_cmH2O=None):
+    def start_measurement(
+        self,
+        measurement_id,
+        cpap_pressure_cmH2O=None,
+        excitation_hz=DEFAULT_EXCITATION_HZ,
+    ):
         self.prepare_for_measurement_start()
-        self.configure(cpap_pressure_cmH2O=cpap_pressure_cmH2O)
+        self.configure(
+            excitation_hz=excitation_hz,
+            sample_hz=float(excitation_hz) * SAMPLES_PER_EXCITATION_CYCLE,
+            cpap_pressure_cmH2O=cpap_pressure_cmH2O,
+        )
         self.recorder = MeasurementSerialRecorder(
             self.client,
             measurement_id,
