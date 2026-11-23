@@ -1,0 +1,5 @@
+check,measurement,finished_time_utc,excitation_hz,reference_R_cmH2O_s_per_L,cpap_note,measured_R_cmH2O_s_per_L,measured_X_cmH2O_s_per_L,R_error_percent,bias_flow_Lps,block_variation_percent,pressure_amplitude,flow_amplitude,qc_valid,R_pass,X_pass,point_pass,verdict
+0,1,2026-08-03T04:58:55.833797+00:00,6.0,13.65,8,14.2787,-0.9716,4.606,0.58195,7.26,0.43372,0.02574,True,True,True,True,"System check: 1/2 measurements. Change CPAP, then run 1 more."
+1,2,2026-08-03T05:03:03.755659+00:00,6.0,13.65,0,12.8419,-1.1468,-5.920,0.01446,4.35,0.46743,0.03681,True,True,False,False,"NOT READY - recalibration required. Run the full 0-20 CPAP sweep in the Calibrate Device tab, then re-check."
+2,1,2026-08-03T05:06:03.299284+00:00,6.0,13.65,4,13.0710,-0.8427,-4.242,0.30922,7.38,0.38259,0.02463,True,True,True,True,"System check: 1/2 measurements. Change CPAP, then run 1 more."
+3,2,2026-08-03T05:07:05.946406+00:00,6.0,13.65,15,12.5377,-0.6284,-8.149,1.02268,7.73,0.52405,0.02809,True,True,True,True,SYSTEM READY - both points within tolerance.

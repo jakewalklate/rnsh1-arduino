@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Waveforms</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Source Sans Pro", sans-serif;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --grid: rgba(148, 163, 184, 0.28);
+      --axis: rgba(31, 41, 55, 0.45);
+      --cursor: #111827;
+      --pressure: #2563eb;
+      --flow: #059669;
+      --qc: rgba(248, 113, 113, 0.2);
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      width: 100%;
+      background: transparent;
+      color: var(--text);
+    }
+
+    .heading {
+      margin: 0 0 0.15rem 0;
+      font-size: 1rem;
+      font-weight: 650;
+      color: var(--text);
+    }
+
+    .graph {
+      position: relative;
+      width: 100%;
+      height: 260px;
+      background: transparent;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <section class="panel">
+    <h3 class="heading">Live Waveforms</h3>
+    <div class="graph">
+      <canvas id="pressureCanvas"></canvas>
+    </div>
+    <div class="graph">
+      <canvas id="flowCanvas"></canvas>
+    </div>
+  </section>
+
+  <script>
+    const Streamlit = {
+      READY: "streamlit:componentReady",
+      RENDER: "streamlit:render",
+      SET_FRAME_HEIGHT: "streamlit:setFrameHeight",
+      setComponentReady() {
+        window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: Streamlit.READY,
+          apiVersion: 1,
+        }, "*");
+      },
+      setFrameHeight(height) {
+        window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: Streamlit.SET_FRAME_HEIGHT,
+          height,
+        }, "*");
+      },
+    };
+
+    const state = {
+      samples: new Map(),
+      elapsedSeconds: 0,
+      renderReceivedAt: performance.now(),
+      smoothedElapsedSeconds: 0,
+      lastAnimationAt: null,
+      smoothClockReady: false,
+      recording: false,
+      timeWindowSeconds: 30,
+      playbackDelaySeconds: 1,
+      pressureYRange: [-2, 2],
+      flowYRange: [-2, 2],
+      excludedIntervals: [],
+      animationFrame: null,
+    };
+
+    const pressureCanvas = document.getElementById("pressureCanvas");
+    const flowCanvas = document.getElementById("flowCanvas");
+
+    function toNumber(value, fallback = 0) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function mergeSamples(samples) {
+      for (const sample of samples || []) {
+        const elapsed = toNumber(sample.elapsed_seconds, NaN);
+        if (!Number.isFinite(elapsed)) {
+          continue;
+        }
+
+        state.samples.set(elapsed.toFixed(4), {
+          elapsed,
+          pressure: toNumber(sample.pressure_cmH2O, NaN),
+          flow: toNumber(sample.flow_lps, NaN),
+        });
+      }
+
+      const newestAllowed = playbackElapsedSeconds() - (state.timeWindowSeconds * 3);
+
+      for (const [key, sample] of state.samples) {
+        if (sample.elapsed < newestAllowed) {
+          state.samples.delete(key);
+        }
+      }
+    }
+
+    function liveElapsedSeconds() {
+      if (!state.recording) {
+        return state.elapsedSeconds;
+      }
+
+      return state.elapsedSeconds + ((performance.now() - state.renderReceivedAt) / 1000);
+    }
+
+    function smoothedLiveElapsedSeconds() {
+      const targetElapsed = liveElapsedSeconds();
+      const now = performance.now();
+
+      if (!state.recording) {
+        state.smoothedElapsedSeconds = targetElapsed;
+        state.lastAnimationAt = now;
+        state.smoothClockReady = false;
+        return targetElapsed;
+      }
+
+      if (!state.smoothClockReady || state.lastAnimationAt === null) {
+        state.smoothedElapsedSeconds = targetElapsed;
+        state.lastAnimationAt = now;
+        state.smoothClockReady = true;
+        return state.smoothedElapsedSeconds;
+      }
+
+      const frameDeltaSeconds = Math.max(0, (now - state.lastAnimationAt) / 1000);
+      state.lastAnimationAt = now;
+      state.smoothedElapsedSeconds += frameDeltaSeconds;
+
+      const driftSeconds = targetElapsed - state.smoothedElapsedSeconds;
+
+      if (Math.abs(driftSeconds) > 1.5) {
+        state.smoothedElapsedSeconds = targetElapsed;
+      } else {
+        state.smoothedElapsedSeconds += driftSeconds * 0.04;
+      }
+
+      return state.smoothedElapsedSeconds;
+    }
+
+    function playbackElapsedSeconds() {
+      if (!state.recording) {
+        return state.elapsedSeconds;
+      }
+
+      return Math.max(0, smoothedLiveElapsedSeconds() - state.playbackDelaySeconds);
+    }
+
+    function activeSegment(elapsed) {
+      const windowSeconds = Math.max(1, state.timeWindowSeconds);
+      const start = Math.floor(Math.max(0, elapsed) / windowSeconds) * windowSeconds;
+      return {
+        start,
+        end: start + windowSeconds,
+      };
+    }
+
+    function resizeCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const pixelRatio = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(rect.width * pixelRatio));
+      const height = Math.max(1, Math.floor(rect.height * pixelRatio));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const context = canvas.getContext("2d");
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      return {
+        context,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
+    function drawGraph(canvas, options) {
+      const { context, width, height } = resizeCanvas(canvas);
+      const elapsed = playbackElapsedSeconds();
+      const segment = activeSegment(elapsed);
+      const cursorTime = Math.max(segment.start, Math.min(elapsed, segment.end));
+      const margin = {
+        left: 54,
+        right: 18,
+        top: 26,
+        bottom: 34,
+      };
+      const plotWidth = Math.max(1, width - margin.left - margin.right);
+      const plotHeight = Math.max(1, height - margin.top - margin.bottom);
+      const yMin = options.yRange[0];
+      const yMax = options.yRange[1];
+
+      context.clearRect(0, 0, width, height);
+      context.font = "13px Source Sans Pro, sans-serif";
+      context.lineWidth = 1;
+
+      function xScale(time) {
+        return margin.left + ((time - segment.start) / (segment.end - segment.start)) * plotWidth;
+      }
+
+      function yScale(value) {
+        return margin.top + ((yMax - value) / (yMax - yMin)) * plotHeight;
+      }
+
+      drawGrid(context, width, height, margin, plotWidth, plotHeight, segment, yMin, yMax);
+      drawQcIntervals(context, xScale, margin, plotHeight, segment);
+
+      context.save();
+      context.beginPath();
+      context.rect(margin.left, margin.top, plotWidth, plotHeight);
+      context.clip();
+      drawWaveform(context, xScale, yScale, segment, cursorTime, options);
+      context.restore();
+
+      drawCursor(context, xScale(cursorTime), margin, plotHeight);
+      drawLabels(context, options, margin, width, height, segment, yMin, yMax);
+    }
+
+    function drawGrid(context, width, height, margin, plotWidth, plotHeight, segment, yMin, yMax) {
+      context.strokeStyle = getCssVar("--grid");
+      context.fillStyle = getCssVar("--muted");
+      context.lineWidth = 1;
+
+      const xTicks = 6;
+      for (let index = 0; index <= xTicks; index += 1) {
+        const x = margin.left + (plotWidth * index / xTicks);
+        context.beginPath();
+        context.moveTo(x, margin.top);
+        context.lineTo(x, margin.top + plotHeight);
+        context.stroke();
+      }
+
+      const yTicks = 4;
+      for (let index = 0; index <= yTicks; index += 1) {
+        const y = margin.top + (plotHeight * index / yTicks);
+        context.beginPath();
+        context.moveTo(margin.left, y);
+        context.lineTo(width - margin.right, y);
+        context.stroke();
+      }
+
+      if (yMin < 0 && yMax > 0) {
+        const zeroY = margin.top + ((yMax - 0) / (yMax - yMin)) * plotHeight;
+        context.strokeStyle = "rgba(107, 114, 128, 0.7)";
+        context.beginPath();
+        context.moveTo(margin.left, zeroY);
+        context.lineTo(width - margin.right, zeroY);
+        context.stroke();
+      }
+
+      context.strokeStyle = getCssVar("--axis");
+      context.beginPath();
+      context.rect(margin.left, margin.top, plotWidth, plotHeight);
+      context.stroke();
+    }
+
+    function drawQcIntervals(context, xScale, margin, plotHeight, segment) {
+      context.fillStyle = getCssVar("--qc");
+
+      for (const interval of state.excludedIntervals || []) {
+        const start = toNumber(interval.start, NaN);
+        const end = toNumber(interval.end, NaN);
+
+        if (!Number.isFinite(start) || !Number.isFinite(end)) {
+          continue;
+        }
+
+        if (end < segment.start || start > segment.end) {
+          continue;
+        }
+
+        const x0 = xScale(Math.max(start, segment.start));
+        const x1 = xScale(Math.min(end, segment.end));
+        context.fillRect(x0, margin.top, Math.max(1, x1 - x0), plotHeight);
+      }
+    }
+
+    function drawWaveform(context, xScale, yScale, segment, cursorTime, options) {
+      const points = Array.from(state.samples.values())
+        .filter((sample) => (
+          sample.elapsed >= segment.start
+          && sample.elapsed <= segment.end
+          && sample.elapsed <= cursorTime
+        ))
+        .sort((a, b) => a.elapsed - b.elapsed);
+
+      context.strokeStyle = options.color;
+      context.lineWidth = 1.7;
+      context.beginPath();
+
+      let drawing = false;
+      for (const sample of points) {
+        const value = sample[options.field];
+
+        if (!Number.isFinite(value)) {
+          drawing = false;
+          continue;
+        }
+
+        const x = xScale(sample.elapsed);
+        const y = yScale(value);
+
+        if (!drawing) {
+          context.moveTo(x, y);
+          drawing = true;
+        } else {
+          context.lineTo(x, y);
+        }
+      }
+
+      context.stroke();
+    }
+
+    function drawCursor(context, x, margin, plotHeight) {
+      context.strokeStyle = getCssVar("--cursor");
+      context.lineWidth = 2;
+      context.beginPath();
+      context.moveTo(x, margin.top);
+      context.lineTo(x, margin.top + plotHeight);
+      context.stroke();
+    }
+
+    function drawLabels(context, options, margin, width, height, segment, yMin, yMax) {
+      context.fillStyle = getCssVar("--text");
+      context.font = "600 14px Source Sans Pro, sans-serif";
+      context.fillText(`${options.title} (${options.unit})`, margin.left, 17);
+
+      context.fillStyle = getCssVar("--muted");
+      context.font = "12px Source Sans Pro, sans-serif";
+      context.fillText(yMax.toFixed(1), 8, margin.top + 4);
+      context.fillText("0", 20, margin.top + ((yMax - 0) / (yMax - yMin)) * (height - margin.top - margin.bottom) + 4);
+      context.fillText(yMin.toFixed(1), 8, height - margin.bottom);
+
+      const startLabel = `${segment.start.toFixed(0)}s`;
+      const endLabel = `${segment.end.toFixed(0)}s`;
+      context.fillText(startLabel, margin.left, height - 10);
+      context.fillText("Time (s)", (width / 2) - 24, height - 10);
+      context.fillText(endLabel, width - margin.right - context.measureText(endLabel).width, height - 10);
+    }
+
+    function getCssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function draw() {
+      drawGraph(pressureCanvas, {
+        title: "Pressure",
+        unit: "cmH2O",
+        field: "pressure",
+        color: getCssVar("--pressure"),
+        yRange: state.pressureYRange,
+      });
+
+      drawGraph(flowCanvas, {
+        title: "Flow",
+        unit: "L/s",
+        field: "flow",
+        color: getCssVar("--flow"),
+        yRange: state.flowYRange,
+      });
+
+      state.animationFrame = window.requestAnimationFrame(draw);
+    }
+
+    function handleRender(event) {
+      if (!event.data || event.data.type !== Streamlit.RENDER) {
+        return;
+      }
+
+      const args = event.data.args || {};
+      const previousElapsed = state.elapsedSeconds;
+      const previousRecording = state.recording;
+
+      state.elapsedSeconds = toNumber(args.elapsedSeconds, 0);
+      state.renderReceivedAt = performance.now();
+      state.recording = Boolean(args.recording);
+      state.timeWindowSeconds = Math.max(1, toNumber(args.timeWindowSeconds, 30));
+      state.playbackDelaySeconds = Math.max(0, toNumber(args.playbackDelaySeconds, 1));
+      state.pressureYRange = args.pressureYRange || [-2, 2];
+      state.flowYRange = args.flowYRange || [-2, 2];
+      state.excludedIntervals = args.excludedIntervals || [];
+
+      const elapsedJump = Math.abs(state.elapsedSeconds - previousElapsed);
+      const recordingChanged = state.recording !== previousRecording;
+
+      if (recordingChanged || elapsedJump > 1.5) {
+        state.smoothedElapsedSeconds = state.elapsedSeconds;
+        state.lastAnimationAt = performance.now();
+        state.smoothClockReady = false;
+      }
+
+      mergeSamples(args.samples || []);
+      Streamlit.setFrameHeight(document.body.scrollHeight);
+    }
+
+    window.addEventListener("message", handleRender);
+    window.addEventListener("resize", () => Streamlit.setFrameHeight(document.body.scrollHeight));
+
+    Streamlit.setComponentReady();
+    Streamlit.setFrameHeight(document.body.scrollHeight);
+    draw();
+  </script>
+</body>
+</html>

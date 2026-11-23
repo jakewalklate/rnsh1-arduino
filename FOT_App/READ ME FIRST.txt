@@ -1,0 +1,50 @@
+Oscillometry Measurement System — Windows App
+==============================================
+
+This is a self-contained version of the app. No Python, no terminal, no
+"pip install" needed. Works on Windows 10 and Windows 11.
+
+SET UP (one time)
+------------------
+1. Copy this whole "FOT_App" folder anywhere on the PC (Desktop, Documents,
+   wherever). Keep all the files inside it together — do not pull
+   "FOT_App.exe" out on its own, it needs the "_internal" folder next to it.
+2. Double-click "FOT_App.exe".
+3. Windows may show a blue "Windows protected your PC" screen (SmartScreen),
+   because this app isn't signed with a paid certificate. Click
+   "More info", then "Run anyway". This only appears the first time.
+4. (Optional) Double-click "Create Desktop Shortcut.bat" once to get a
+   normal-looking desktop icon for next time.
+
+USING THE APP
+--------------
+Double-click "FOT_App.exe" (or the desktop shortcut). A console window will
+open briefly and then your normal web browser will open to the app —
+that console window is the app's engine running in the background; leave
+it open while you use the app, and close it (or just close the window) when
+you're done. Closing the browser tab does not stop the app; closing the
+console window does.
+
+The Arduino/sensor hardware connects exactly the same way it always did
+(USB cable, same COM port auto-detection). If Windows has never seen this
+Arduino before, it may need its USB driver installed the first time — same
+as before, this hasn't changed.
+
+DATA
+----
+Patient records, test results, and calibration files are stored inside
+this folder (app_src\system.db and app_src\data\...), the same as the
+old terminal version. If you move or rebuild this folder, copy those two
+locations across first if you want to keep existing data.
+
+IF SOMETHING GOES WRONG
+-------------------------
+Look at the text in the console window that opens behind the browser tab —
+any Python error will print there. If the app doesn't open a browser tab
+by itself within ~10 seconds, open one manually and go to:
+    http://localhost:8501
+
+This build was produced from the "Coding\Final App" source (branch
+graph-attempt). To rebuild it after future code changes, see the developer
+notes in the parent "Final App setup compatible" folder (README.md and
+build.ps1).

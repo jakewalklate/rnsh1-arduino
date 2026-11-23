@@ -1,0 +1,4 @@
+check,measurement,finished_time_utc,excitation_hz,reference_R_cmH2O_s_per_L,cpap_note,measured_R_cmH2O_s_per_L,measured_X_cmH2O_s_per_L,R_error_percent,bias_flow_Lps,block_variation_percent,pressure_amplitude,flow_amplitude,qc_valid,R_pass,X_pass,point_pass,verdict
+0,1,2026-08-03T06:03:49.153122+00:00,6.0,13.65,20,14.5392,-0.6059,6.515,1.28688,8.34,0.55171,0.02455,True,True,True,True,"System check: 1/2 measurements. Change CPAP, then run 1 more."
+1,2,2026-08-03T06:04:34.724491+00:00,6.0,13.65,0,13.4576,0.0848,-1.409,0.01318,4.35,0.49645,0.03962,True,True,True,True,SYSTEM READY - both points within tolerance.
+2,3,2026-08-03T06:09:55.119284+00:00,6.0,0.1,0,-0.6931,-2.7945,-793.097,0.01089,5.29,0.13265,0.05281,True,False,False,False,"NOT READY - the two measurements used different reference loads (0.1, 13.65). Redo on one load."

@@ -1,0 +1,2 @@
+check,measurement,finished_time_utc,excitation_hz,reference_R_cmH2O_s_per_L,cpap_note,measured_R_cmH2O_s_per_L,measured_X_cmH2O_s_per_L,R_error_percent,bias_flow_Lps,block_variation_percent,pressure_amplitude,flow_amplitude,qc_valid,R_pass,X_pass,point_pass,verdict
+0,1,2026-08-03T01:18:50.113120+00:00,6.0,13.65,0,13.2056,1.2076,-3.256,0.00704,8.34,0.18791,0.01573,True,True,False,False,"System check: 1/2 measurements. Change CPAP, then run 1 more."

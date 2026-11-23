@@ -1,0 +1,15 @@
+[theme]
+# Color of primary buttons (type="primary"), sliders, and other accents.
+primaryColor = "#87a4b7"
+
+# Main page background.
+backgroundColor = "#f4f4f4"
+
+# Background of the sidebar and some widgets (e.g. text input boxes).
+secondaryBackgroundColor = "#ffffff"
+
+# Default text color.
+textColor = "#262730"
+
+# "sans serif", "serif", or "monospace"
+font = "sans serif"

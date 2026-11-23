@@ -1,0 +1,8 @@
+check,measurement,finished_time_utc,excitation_hz,reference_R_cmH2O_s_per_L,cpap_note,measured_R_cmH2O_s_per_L,measured_X_cmH2O_s_per_L,R_error_percent,bias_flow_Lps,block_variation_percent,pressure_amplitude,flow_amplitude,qc_valid,R_pass,X_pass,point_pass,verdict
+0,1,2026-08-03T01:42:15.039077+00:00,6.0,13.65,0,13.6421,-0.2189,-0.058,0.01306,4.96,0.34128,0.02684,True,True,True,True,"System check: 1/2 measurements. Change CPAP, then run 1 more."
+1,2,2026-08-03T01:43:10.482913+00:00,6.0,13.65,8,13.8093,-1.3414,1.167,0.56132,8.57,0.28139,0.01666,True,True,False,False,"NOT READY - recalibration required. Run the full 0-20 CPAP sweep in the Calibrate Device tab, then re-check."
+2,3,2026-08-03T01:47:04.434614+00:00,6.0,13.65,8,13.8480,-0.8998,1.451,0.55756,8.04,0.28277,0.01661,True,True,True,True,NOT READY - both measurements at the same bias flow (spread 0.004 < 0.15 L/s). Change CPAP between measurements and redo.
+3,4,2026-08-03T01:47:55.106445+00:00,6.0,13.65,14,15.3077,-0.7293,12.144,0.89197,9.29,0.33216,0.01827,True,False,True,False,"NOT READY - recalibration required. Run the full 0-20 CPAP sweep in the Calibrate Device tab, then re-check."
+4,5,2026-08-03T02:10:19.579631+00:00,6.0,13.65,7,13.5722,-1.0938,-0.570,0.49249,7.82,0.28013,0.01802,True,True,False,False,"NOT READY - recalibration required. Run the full 0-20 CPAP sweep in the Calibrate Device tab, then re-check."
+5,1,2026-08-03T02:10:56.074794+00:00,6.0,13.65,7,13.4051,-1.4250,-1.794,0.49336,7.25,0.27956,0.01813,True,True,False,False,"System check: 1/2 measurements. Change CPAP, then run 1 more."
+6,1,2026-08-03T02:11:49.113380+00:00,6.0,13.65,8,13.5807,-1.2898,-0.508,0.55536,8.04,0.29099,0.01737,True,True,False,False,"System check: 1/2 measurements. Change CPAP, then run 1 more."

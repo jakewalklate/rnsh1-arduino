@@ -1,0 +1,58 @@
+{
+  "excitation_hz": 6.0,
+  "reference_resistance": 13.62,
+  "fit_degree": 5,
+  "r_degree": 5,
+  "x_degree": 5,
+  "scale": 0.972518,
+  "k_plumbing": -15.758831,
+  "k_x": 18.27352,
+  "k_plumbing_poly": [
+    -15.758831,
+    92.755282,
+    -163.434709,
+    125.29418,
+    -34.20793
+  ],
+  "k_x_poly": [
+    18.27352,
+    -72.21129,
+    116.370976,
+    -81.817296,
+    18.294981
+  ],
+  "clamp_q_low": 0.0,
+  "clamp_q_high": 1.137413,
+  "fit_r_intercept": 14.004877,
+  "fit_r_coeffs_ascending": [
+    14.004877,
+    -16.204148,
+    95.376382,
+    -168.053084,
+    128.834771,
+    -35.174586
+  ],
+  "fit_r_squared": 0.889496,
+  "fit_x_intercept": 0.035896,
+  "fit_x_coeffs_ascending": [
+    0.035896,
+    18.789897,
+    -74.251853,
+    119.659413,
+    -84.129308,
+    18.811965
+  ],
+  "fit_x_squared": 0.973957,
+  "r_holdout_rms": 1.346688,
+  "x_holdout_rms": 0.43585,
+  "x_residual_at_zero": 0.034909,
+  "fit_q_min": 0.010268,
+  "fit_q_max": 1.137413,
+  "n_points": 11,
+  "fit_model": "R_phase=a+sum r_i Q^i (deg 5); X_phase=a_X+sum x_i Q^i (deg 5); correction: R=SCALE*R_phase - sum(SCALE*r_i * Qc^i), X=SCALE*X_phase - sum(SCALE*x_i * Qc^i); Qc=clip(Q,0,clamp_q_high); SCALE from the R intercept only",
+  "phase_correction_deg": -5.316134,
+  "phase_calibration_file": "fot_phase_calibration_6hz.json",
+  "source_csv": "tube_calibration_20260806_102911.csv",
+  "saved_utc": "2026-08-06T00:38:59.865129+00:00",
+  "saved_from": "clinical app calibration tab"
+}
