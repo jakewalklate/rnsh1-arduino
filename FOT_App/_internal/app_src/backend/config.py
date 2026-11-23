@@ -1,4 +1,19 @@
+from datetime import datetime
 from pathlib import Path
+
+
+DEBUG_LOG_FILE = Path(__file__).resolve().parents[2] / "debug.log"
+
+
+def log_debug(msg):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    formatted = f"[{timestamp}] {msg}"
+    print(formatted, flush=True)
+    try:
+        with open(DEBUG_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(formatted + "\n")
+    except Exception:
+        pass
 
 
 ARDUINO_ENABLED = True

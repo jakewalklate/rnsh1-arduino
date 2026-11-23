@@ -1,0 +1,2 @@
+[2026-11-23 14:58:52.514] [UI] 'Start Recording' clicked inside confirm_start_dialog
+[2026-11-23 14:58:53.092] [UI ERROR] start_measurement failed: Could not start Arduino recording after reconnecting. Close Arduino Serial Monitor or any other app using the port, then try again. Last error: Device not found on the serial port. No serial ports were detected.

@@ -113,6 +113,9 @@ def confirm_start_dialog():
             type="primary",
             width="stretch"
         ):
+            from backend.config import log_debug
+            log_debug("[UI] 'Start Recording' clicked inside confirm_start_dialog")
+            st.toast("Connecting to Arduino and starting measurement...", icon="⏳")
             # Utility pages intentionally retain their healthy idle calibration
             # connection so moving between System Check and Device Calibration does
             # not cycle the Uno R4 USB port. Hand that connection back immediately
@@ -131,6 +134,7 @@ def confirm_start_dialog():
                     cpap_pressure_cmH2O=parameters["cpap_pressure_cmH2O"],
                 )
             except Exception as error:
+                log_debug(f"[UI ERROR] start_measurement failed: {error}")
                 discard_measurement(measurement_id)
                 st.error(f"Could not start Arduino recording: {error}")
                 return

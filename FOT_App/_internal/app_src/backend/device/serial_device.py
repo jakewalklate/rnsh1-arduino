@@ -6,6 +6,7 @@ from time import monotonic, sleep
 import serial
 from serial.tools import list_ports
 
+from backend.config import log_debug
 from backend.processing.FlowGainCalibration import rescale_flow_lps
 
 
@@ -269,7 +270,7 @@ class ArduinoSerialClient:
 
                 if self._serial.in_waiting:
                     self._serial.reset_input_buffer()
-                print(f"[DEBUG] Connected to Arduino on port {self.port} at {self.baudrate} baud", flush=True)
+                log_debug(f"[DEBUG] Connected to Arduino on port {self.port} at {self.baudrate} baud")
             except (OSError, serial.SerialException) as error:
                 self._invalidate_serial()
                 raise ArduinoSerialError(
@@ -315,7 +316,7 @@ class ArduinoSerialClient:
             if not self.is_connected:
                 raise ArduinoSerialError("Cannot send command before connecting.")
             try:
-                print(f"[DEBUG ARDUINO TX] -> {cleaned_command}", flush=True)
+                log_debug(f"[DEBUG ARDUINO TX] -> {cleaned_command}")
                 self._serial.write(f"{cleaned_command}\n".encode("ascii"))
             except (OSError, serial.SerialException) as error:
                 self._invalidate_serial()
@@ -419,7 +420,7 @@ class ArduinoSerialClient:
             for line in lines:
                 stripped = line.strip()
                 if stripped.startswith("#"):
-                    print(f"[DEBUG ARDUINO RX] <- {stripped}", flush=True)
+                    log_debug(f"[DEBUG ARDUINO RX] <- {stripped}")
                     self._notices.append(stripped)
                     continue
 
