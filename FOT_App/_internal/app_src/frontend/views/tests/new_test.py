@@ -80,7 +80,7 @@ def render_active_dialogs():
 
 def render_missing_state(message, back_page):
     st.error(message)
-    if st.button("Back"):
+    if st.button("Back", icon=":material/arrow_back:"):
         goto(back_page)
 
 
@@ -106,6 +106,15 @@ def new_test_page():
 
     render_active_dialogs()
     render_recording_page_styles()
+
+    # Back button top left, as on the other pages. Hidden while a measurement is
+    # running or waiting to be saved, because leaving then would lose it.
+    if st.session_state.recording or st.session_state.show_stop_summary:
+        st.caption("Stop and save or discard the measurement before leaving this test.")
+    elif st.button(
+        "Back to Patient", icon=":material/arrow_back:", key="back_to_patient"
+    ):
+        goto("patient_view")
     with card("recording-header", "accent"):
         render_test_header(
             test_id,
@@ -120,7 +129,3 @@ def new_test_page():
         else:
             render_recording_runtime(test_id, test_status, max_duration_seconds)
 
-    if st.session_state.recording or st.session_state.show_stop_summary:
-        st.caption("Stop and save or discard the measurement before leaving this test.")
-    elif st.button("Back to Patient", width="stretch"):
-        goto("patient_view")

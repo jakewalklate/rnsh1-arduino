@@ -137,6 +137,8 @@ def streamlit_args(port):
         # Files do not change under a running copy; watching them only lets a
         # half-finished edit or a copy of the folder leave the app in a mixed state.
         "--server.fileWatcherType", "none",
+        # No Deploy button or developer menu (also set in .streamlit/config.toml).
+        "--client.toolbarMode", "minimal",
     ]
 
 

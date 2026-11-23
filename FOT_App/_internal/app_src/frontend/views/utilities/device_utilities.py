@@ -48,14 +48,13 @@ def _leave_utility_page():
 
 
 def _render_page_header(title):
-    # A wrapping row rather than fixed columns, so the button keeps its size and
-    # drops under the title on a narrow window instead of being squashed.
-    with st.container(horizontal=True, vertical_alignment="center"):
-        st.title(title, width="content")
-        st.space("stretch")
-        if st.button("Return Home", key=f"{title}_return_home"):
-            _leave_utility_page()
-            goto("home")
+    # Back button top left, as on the patient page; the title underneath.
+    if st.button(
+        "Return Home", icon=":material/arrow_back:", key=f"{title}_return_home"
+    ):
+        _leave_utility_page()
+        goto("home")
+    st.title(title)
 
 
 def device_calibration_page():

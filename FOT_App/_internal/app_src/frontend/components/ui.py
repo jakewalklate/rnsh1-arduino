@@ -107,6 +107,8 @@ header[data-testid="stHeader"] {{ background: transparent; pointer-events: none;
 }}
 
 /* ---- Streamlit elements, app-wide ---- */
+/* Streamlit's Deploy button; toolbarMode = "minimal" removes it too. */
+[data-testid="stAppDeployButton"] {{ display: none !important; }}
 h1 {{ letter-spacing: -0.01em; }}
 [data-testid="stMetric"] {{
     background: #f7f9fb; border: 1px solid {BORDER}; border-left: 4px solid {ACCENT};
