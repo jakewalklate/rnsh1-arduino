@@ -36,8 +36,36 @@ volatile uint16_t lutIndex = 0;
 uint16_t sineLut[N_LUT];
 uint32_t recordingStartedMs = 0;
 
+// Batched transmission buffer.
+// Blasting 420 individual micro-packets per second over USB-CDC causes
+// TinyUSB endpoint stalls and Electron/Windows host UI lag.
+// Batching samples into ~120-200 byte chunks reduces USB transaction
+// overhead by 6x while delivering full 420 Hz data smoothly to Python.
+char txBatchBuf[256];
+uint16_t txBatchLen = 0;
+
 char cmdBuf[96];
 uint8_t cmdLen = 0;
+
+void flushTxBatch() {
+  if (txBatchLen > 0 && Serial) {
+    Serial.write((const uint8_t *)txBatchBuf, txBatchLen);
+    txBatchLen = 0;
+  }
+}
+
+void appendTxBatch(const char *str, int len) {
+  if (len <= 0) return;
+  if ((uint16_t)(txBatchLen + len) >= sizeof(txBatchBuf)) {
+    flushTxBatch();
+  }
+  memcpy(txBatchBuf + txBatchLen, str, len);
+  txBatchLen += len;
+  // Flush when we reach ~128 bytes (about 6 samples) to keep latency low (<15ms)
+  if (txBatchLen >= 128) {
+    flushTxBatch();
+  }
+}
 
 // ── Hardware-timer-driven DAC ────────────────────────────────
 // The timer ISR fires at exactly sampleHz and writes the next
@@ -85,16 +113,24 @@ bool configureSampleTimer(float hz) {
   uint8_t type = GPT_TIMER;
   int8_t ch = FspTimer::get_available_timer(type);
   if (ch < 0) {
+    ch = FspTimer::get_available_timer(type, true);
+  }
+  if (ch < 0) {
     type = AGT_TIMER;
     ch = FspTimer::get_available_timer(type);
   }
   if (ch < 0)
     return false;
 
-  sampleTimer.begin(TIMER_MODE_PERIODIC, type, ch, hz, 0.0f, dacISR);
-  sampleTimer.setup_overflow_irq();
-  sampleTimer.open();
-  sampleTimer.start();
+  FspTimer::force_use_of_pwm_reserved_timer();
+  if (!sampleTimer.begin(TIMER_MODE_PERIODIC, type, ch, hz, 0.0f, dacISR))
+    return false;
+  if (!sampleTimer.setup_overflow_irq())
+    return false;
+  if (!sampleTimer.open())
+    return false;
+  if (!sampleTimer.start())
+    return false;
   timerConfigured = true;
   return true;
 }
@@ -147,16 +183,11 @@ void startRecording() {
   noInterrupts();
   lutIndex = 0;
   sampleDue = false;
+  recording = true;
   interrupts();
 
+  txBatchLen = 0;
   recordingStartedMs = millis();
-  recording = true;
-
-  if (!configureSampleTimer(sampleHz)) {
-    recording = false;
-    Serial.println("# ERROR: no hardware timer channel available");
-    return;
-  }
 
   Serial.println("# STARTED");
   if (flowCal) {
@@ -171,9 +202,13 @@ void startRecording() {
 }
 
 void stopRecording() {
+  noInterrupts();
   recording = false;
-  stopSampleTimer();
+  sampleDue = false;
+  interrupts();
+
   R_DAC->DADR[0] = DAC_BIAS;
+  flushTxBatch();
   Serial.println("# STOPPED");
 }
 
@@ -195,8 +230,8 @@ void setFrequency(int hz) {
   sampleDue = false;
   interrupts();
 
-  if (recording) {
-    configureSampleTimer(sampleHz);
+  if (timerConfigured) {
+    sampleTimer.set_frequency(sampleHz);
   }
 
   Serial.print("# excitation Hz set to: ");
@@ -344,6 +379,10 @@ void setup() {
   buildLut(dacAmpl);
   analogWrite(DAC, DAC_BIAS);
 
+  if (!configureSampleTimer(sampleHz)) {
+    Serial.println("# ERROR: could not initialize hardware timer");
+  }
+
   Serial.println("# READY");
   Serial.print("# excitation Hz: ");
   Serial.println(excitationHz, 3);
@@ -380,16 +419,10 @@ void loop() {
   float differentialPressure = toCmH2O(b, FS_B_CMH2O) - OFFSET_B_CMH2O;
   float output = flowCal ? differentialPressure : flowFor(differentialPressure);
 
-    // Only send over USB if the host has opened the port and is listening.
-    // This prevents flooding the ESP32-S3 TinyUSB endpoint buffer when the host
-    // disconnects or switches apps, avoiding "TUSB:DCD: Unknown Condition"
-    // stalls.
-    if (Serial) {
-      char line[64];
-      int n = snprintf(line, sizeof(line), "%u,%.4f,%.4f\n", (unsigned)phase,
-                       pressure, output);
-      if (n > 0) {
-        Serial.write(line, n);
-      }
-    }
+  char line[64];
+  int n = snprintf(line, sizeof(line), "%u,%.4f,%.4f\n", (unsigned)phase,
+                   pressure, output);
+  if (n > 0) {
+    appendTxBatch(line, n);
   }
+}

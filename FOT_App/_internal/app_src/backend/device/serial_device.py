@@ -269,6 +269,7 @@ class ArduinoSerialClient:
 
                 if self._serial.in_waiting:
                     self._serial.reset_input_buffer()
+                print(f"[DEBUG] Connected to Arduino on port {self.port} at {self.baudrate} baud", flush=True)
             except (OSError, serial.SerialException) as error:
                 self._invalidate_serial()
                 raise ArduinoSerialError(
@@ -314,6 +315,7 @@ class ArduinoSerialClient:
             if not self.is_connected:
                 raise ArduinoSerialError("Cannot send command before connecting.")
             try:
+                print(f"[DEBUG ARDUINO TX] -> {cleaned_command}", flush=True)
                 self._serial.write(f"{cleaned_command}\n".encode("ascii"))
             except (OSError, serial.SerialException) as error:
                 self._invalidate_serial()
@@ -417,6 +419,7 @@ class ArduinoSerialClient:
             for line in lines:
                 stripped = line.strip()
                 if stripped.startswith("#"):
+                    print(f"[DEBUG ARDUINO RX] <- {stripped}", flush=True)
                     self._notices.append(stripped)
                     continue
 

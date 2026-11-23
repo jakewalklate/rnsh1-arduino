@@ -123,6 +123,9 @@ class MeasurementSerialRecorder:
                 })
 
             self.recent_samples.extend(rows)
+            if self.sample_number > 0 and self.sample_number % 200 < len(rows):
+                latest = rows[-1]
+                print(f"[DEBUG LIVE] Sample #{self.sample_number:05d} | P={latest['pressure_cmH2O']:+.2f} cmH2O | Flow={latest['flow_lps']:+.2f} L/s", flush=True)
 
         if self.save_to_database:
             self._queue_database_rows(rows)
@@ -137,10 +140,14 @@ class MeasurementSerialRecorder:
             return list(self.recent_samples)
 
     def _recording_loop(self):
+        print(f"[DEBUG] Recording thread started for measurement {self.measurement_id}", flush=True)
         while not self._stop_event.is_set():
             try:
                 self.poll()
             except Exception as error:
+                import traceback
+                print(f"[DEBUG ERROR in recording loop] {error}", flush=True)
+                traceback.print_exc()
                 with self._lock:
                     self.last_error = error
                     self.is_recording = False
@@ -152,6 +159,7 @@ class MeasurementSerialRecorder:
         with self._lock:
             self.is_recording = False
 
+        print(f"[DEBUG] Recording thread ended. Total samples collected: {self.sample_number}", flush=True)
         self._flush_pending_database_rows()
         self._close_csv_writer()
 
