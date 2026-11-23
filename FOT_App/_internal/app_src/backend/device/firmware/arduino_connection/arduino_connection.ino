@@ -24,7 +24,7 @@ const int N_LUT = 70;
 const uint16_t DAC_BIAS = 2048;
 const uint32_t SAFETY_MAX_MS = 20UL * 60UL * 1000UL;
 
-float excitationHz = 6.0f;
+float excitationHz = 5.0f;
 float sampleHz = excitationHz * N_LUT;
 uint16_t dacAmpl = 200;
 
@@ -48,8 +48,13 @@ char cmdBuf[96];
 uint8_t cmdLen = 0;
 
 void flushTxBatch() {
-  if (txBatchLen > 0 && Serial) {
-    Serial.write((const uint8_t *)txBatchBuf, txBatchLen);
+  if (txBatchLen > 0) {
+    // Always empty the buffer. If no host is connected the batch is dropped;
+    // keeping it would let appendTxBatch() memcpy past the end of txBatchBuf
+    // and crash the board (seen on macOS as "Device not configured").
+    if (Serial) {
+      Serial.write((const uint8_t *)txBatchBuf, txBatchLen);
+    }
     txBatchLen = 0;
   }
 }
@@ -266,7 +271,7 @@ void handleConfig(char *command) {
   char *token = strtok(command, ",");
   while (token) {
     token = trim(token);
-    if (strncmp(token, "EXCITATION_HZ=", 15) == 0 ||
+    if (strncmp(token, "EXCITATION_HZ=", 14) == 0 ||
         strncmp(token, "FREQUENCY_HZ=", 13) == 0) {
       hz = atoi(strchr(token, '=') + 1);
     } else if (strncmp(token, "DAC_AMPL=", 9) == 0) {

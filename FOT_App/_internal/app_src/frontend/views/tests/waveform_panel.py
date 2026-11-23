@@ -377,6 +377,16 @@ def render_waveform_panel(
     flow_y_range=DEFAULT_FLOW_Y_RANGE,
     excluded_intervals=None,
 ):
+    if st.session_state.get("recording"):
+        try:
+            from frontend.services.recording_service import get_recording_service
+
+            problem = get_recording_service().get_recording_problem()
+        except Exception:
+            problem = None
+        if problem:
+            st.error(problem)
+
     display_elapsed_seconds = max(
         0,
         elapsed_seconds - DEFAULT_WAVEFORM_PLAYBACK_DELAY_SECONDS,

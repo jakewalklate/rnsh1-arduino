@@ -98,6 +98,12 @@ class RecordingService:
 
         return "Arduino connection reset."
 
+    def get_recording_problem(self):
+        """Operator-facing message when the live recording has stalled or failed."""
+        if self.controller is None:
+            return None
+        return self.controller.get_recording_problem()
+
     def get_recent_samples(self):
         if self.controller is None:
             return []

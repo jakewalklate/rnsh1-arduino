@@ -123,6 +123,11 @@ class ArduinoController:
             return None
         return self.recorder.last_error
 
+    def get_recording_problem(self):
+        if self.recorder is None:
+            return None
+        return self.recorder.get_problem()
+
     def stop_measurement(self):
         if self.recorder is None:
             return

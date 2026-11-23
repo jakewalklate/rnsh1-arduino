@@ -7,6 +7,11 @@ from backend.database.storage import save_measurement_samples
 from backend.device.sample_csv_writer import MeasurementCsvWriter
 
 
+# Seconds after START with no sample at all before the stream is reported as stalled.
+# The firmware's first batch arrives within ~20 ms, so this is generous.
+NO_DATA_WARNING_SECONDS = 3.0
+
+
 class MeasurementSerialRecorder:
     def __init__(
         self,
@@ -35,6 +40,7 @@ class MeasurementSerialRecorder:
         self.sample_number = 0
         self.is_recording = False
         self.last_error = None
+        self.device_errors = []
         self._pending_database_rows = []
         self._last_database_flush = monotonic()
         self._csv_writer = MeasurementCsvWriter(measurement_id) if save_to_csv else None
@@ -57,6 +63,7 @@ class MeasurementSerialRecorder:
             self.started_at = monotonic()
             self.sample_number = 0
             self.last_error = None
+            self.device_errors = []
             self.recent_samples.clear()
             self._pending_database_rows = []
             self._last_database_flush = monotonic()
@@ -108,6 +115,7 @@ class MeasurementSerialRecorder:
                 return []
 
         samples = self.serial_client.read_available()
+        self._collect_device_errors()
         rows = []
 
         with self._lock:
@@ -138,6 +146,50 @@ class MeasurementSerialRecorder:
     def get_recent_samples(self):
         with self._lock:
             return list(self.recent_samples)
+
+    def _collect_device_errors(self):
+        """Keep firmware '# ERROR ...' / '# AUTO_STOP ...' notices so the UI can show them."""
+        drain = getattr(self.serial_client, "drain_notices", None)
+        notices = drain() if callable(drain) else []
+        if not isinstance(notices, list):
+            return
+        problems = [
+            notice
+            for notice in notices
+            if "ERROR" in str(notice).upper() or "AUTO_STOP" in str(notice).upper()
+        ]
+        if problems:
+            for notice in problems:
+                log_debug(f"[DEBUG ARDUINO ERROR] {notice}")
+            with self._lock:
+                self.device_errors.extend(problems)
+
+    def get_problem(self, no_data_after_seconds=NO_DATA_WARNING_SECONDS):
+        """A message for the operator when the recording is not producing data, else None.
+
+        WHY: a stream that dies used to look exactly like an empty graph. The firmware
+        can accept START and then send nothing (e.g. an old build that leaked its
+        hardware timer on every START/STOP), and recording-loop errors were only
+        written to debug.log.
+        """
+        with self._lock:
+            if self.last_error is not None:
+                return f"Recording stopped because the Arduino connection failed: {self.last_error}"
+            if self.device_errors:
+                return f"The Arduino reported a problem: {self.device_errors[-1].lstrip('# ')}"
+            if (
+                self.is_recording
+                and self.sample_number == 0
+                and self.started_at is not None
+                and monotonic() - self.started_at > no_data_after_seconds
+            ):
+                return (
+                    "The Arduino accepted START but is not sending any data. Unplug and "
+                    "replug the device, then stop and start the recording again. If it "
+                    "keeps happening, upload the current firmware "
+                    "(backend/device/firmware/arduino_connection) to the board."
+                )
+        return None
 
     def _recording_loop(self):
         log_debug(f"[DEBUG] Recording thread started for measurement {self.measurement_id}")
