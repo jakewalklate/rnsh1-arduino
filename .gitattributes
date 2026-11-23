@@ -1,0 +1,4 @@
+# Start scripts must keep these line endings on every computer, or they stop working.
+*.command text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
