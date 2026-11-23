@@ -396,7 +396,7 @@ def test_view():
 
     if test is None:
         st.error("Test not found.")
-        if st.button("Back to Patient"):
+        if st.button("Back to Patient", icon=":material/arrow_back:"):
             goto("patient_view")
         return
 
@@ -410,36 +410,31 @@ def test_view():
     recording_sessions = test[7]
     status = test[8]
 
-    st.space("small")
-    with st.container(horizontal=True):
-        with st.container():
-            st.title(test_id)
-            st.caption(patient_id)
-        
+    # Back button top left and the main action top right, as on the patient page.
+    with st.container(horizontal=True, vertical_alignment="center"):
+        if st.button(
+            "Return to Patient",
+            icon=":material/arrow_back:",
+            key="return_to_patient",
+        ):
+            st.session_state.selected_patient_id = patient_id
+            goto("patient_view")
+
         st.space("stretch")
-        
-        col1, col2 = st.columns(2)
 
-        with col1:
-            st.space("small")
+        if st.button("New Measurement", type="primary", key="new_measurement"):
+            st.session_state.current_test_id = test_id
+            st.session_state.selected_patient_id = patient_id
+            st.session_state.show_start_dialog = True
+            st.session_state.show_config_dialog = False
+            st.session_state.show_stop_summary = False
+            st.session_state.delete_empty_test_on_cancel = False
+            st.session_state.recording = False
+            st.session_state.current_measurement_id = None
+            goto("start_test")
 
-            if st.button("New Measurement", type="primary", width="stretch"):
-                st.session_state.current_test_id = test_id
-                st.session_state.selected_patient_id = patient_id
-                st.session_state.show_start_dialog = True
-                st.session_state.show_config_dialog = False
-                st.session_state.show_stop_summary = False
-                st.session_state.delete_empty_test_on_cancel = False
-                st.session_state.recording = False
-                st.session_state.current_measurement_id = None
-                goto("start_test")
-
-        with col2:
-            st.space("small")
-
-            if st.button("Return to Patient", width="stretch"):
-                st.session_state.selected_patient_id = patient_id
-                goto("patient_view")
+    st.title(test_id)
+    st.caption(patient_id)
 
 
     with card("results", "accent"):

@@ -1,9 +1,11 @@
-# Builds "FOT App" for Windows, macOS and Linux with FOT_App/_internal/app_src/build_app.py.
+# On every push and pull request that touches FOT_App: runs the app's tests on
+# Windows, macOS and Linux.
 #
-# Runs when FOT_App changes on main, or by hand (Actions tab -> Build FOT App -> Run
-# workflow). Each run's zips are under the run's "Artifacts" for 30 days. Pushing a
-# version tag (e.g. git tag v1.2 && git push origin v1.2) also attaches the three
-# zips to a GitHub Release, which keeps them permanently.
+# Packaged apps (build_app.py) are NOT built automatically: the team runs the app
+# from source with the "Start FOT App" scripts for now. To build them, start this
+# workflow by hand (Actions tab -> Build FOT App -> Run workflow); the zips appear
+# under that run's "Artifacts" for 30 days. A version tag (git tag v1.2 && git push
+# origin v1.2) also builds them and attaches them to a GitHub Release.
 #
 # The zips hold the app and its code only: no patient database, recordings or
 # device calibration (build_app.py leaves out system.db and app_src/data).
@@ -27,8 +29,31 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    name: Tests (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+          - os: macos-latest
+            label: macOS
+          - os: ubuntu-22.04
+            label: Linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      # The same command the Start FOT App scripts use, so this also checks that
+      # requirements.txt installs on every system.
+      - name: Run the app's tests
+        working-directory: FOT_App/_internal/app_src
+        run: uv run --no-project --python 3.13 --with-requirements requirements.txt --with pytest python -m pytest tests -q
+
   build:
-    name: ${{ matrix.label }}
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    name: Build ${{ matrix.label }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,12 +82,6 @@ jobs:
             libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libnss3 libxcomposite1 \
             libxdamage1 libxrandr2 libxtst6 libxshmfence1 libdbus-1-3 \
             libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libasound2
-
-      - name: Run the app's tests
-        working-directory: FOT_App/_internal/app_src
-        run: |
-          python -m pip install --only-binary=:all: --no-binary=proxy-tools -r requirements.txt pytest
-          python -m pytest tests -q
 
       - name: Build and package
         run: python FOT_App/_internal/app_src/build_app.py --package

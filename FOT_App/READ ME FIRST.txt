@@ -3,60 +3,44 @@ Oscillometry Measurement System
 
 STARTING THE APP
 ----------------
-Double-click "FOT App" in this folder:
+Double-click the one for your computer:
 
-  Windows:  FOT App.exe
-  Mac:      FOT App      (drag it to the Dock to keep it there)
-  Linux:    FOT App
+  Windows:  Start FOT App (Windows).bat
+  Mac:      Start FOT App (Mac).command
+  Linux:    Start FOT App (Linux).sh
 
-The app opens in its own window. Close the window to stop the app.
+That's all. Nothing needs installing first.
 
-The first time:
-  * Windows may show a blue "Windows protected your PC" screen, because the app
-    is not signed with a paid certificate. Click "More info", then "Run anyway".
-    The app puts a shortcut on your desktop the first time it runs.
-  * macOS may say the app "can't be opened" for the same reason. Right-click it,
-    choose Open, then Open again. After that it opens normally.
-  * Linux: the app adds itself to the applications menu and the desktop. If the
-    Arduino is found but can't be opened, add yourself to the serial group once:
-        sudo usermod -aG dialout $USER     (then log out and back in)
+The FIRST start takes a few minutes and needs internet: it downloads a private
+copy of Python and the app's packages (using a small tool called uv). After that
+the app starts in a few seconds, with or without internet.
 
-Keep everything in this folder together. The app needs the "_internal" folder
-next to it: that is where the program, the patient records and the calibration
-files live.
+The app opens in its own window. A black/terminal window opens too; leave it
+open while you use the app. Closing the app window stops the app.
+
+If the computer asks first:
+  * Windows "Windows protected your PC": click "More info", then "Run anyway".
+    Windows "Open File - Security Warning": click "Run".
+  * Mac "can't be opened" / "not verified": open System Settings > Privacy &
+    Security, scroll down, click "Open Anyway" next to the script's name.
+    You only need to do this once.
+  * Linux: if double-clicking opens the file as text, right-click it and choose
+    "Run as a Program", or in a terminal run:  bash "Start FOT App (Linux).sh"
 
 THE ARDUINO
 -----------
-The Arduino connects over USB and is found automatically. If several devices are
-plugged in, the app asks each one and picks the one running the FOT firmware. If
-it still can't decide, go to Calibrate Device and press "Search for devices". If
-Windows has never seen this Arduino before, it may need its USB driver the first
-time.
+Plug it in by USB; it is found automatically. If several devices are plugged in,
+go to Calibrate Device and press "Search for devices". On Linux, if the device is
+found but can't be opened, run once:
+    sudo usermod -aG dialout $USER     (then log out and back in)
 
 DATA
 ----
-Patient records, test results and calibration files are stored in
-_internal/app_src (system.db and the data folder). Copy those two if you move to
-a new copy of the app and want to keep existing data.
+Patient records, test results and calibration files are kept in this folder, in
+_internal/app_src (system.db and the data folder). Keep this folder; copy those
+two if you move to a new copy of the app.
 
 IF SOMETHING GOES WRONG
 -----------------------
-The app writes what it is doing to _internal/app_src/data/desktop.log. If the
-window doesn't appear, look at the end of that file. If the computer has no
-built-in web viewer the app opens in your normal web browser instead.
-
-FOR DEVELOPERS: BUILDING THE APP
---------------------------------
-The app runs the code in _internal/app_src directly, so code changes need no
-rebuild. Rebuild only after changing requirements.txt or desktop.py, on each
-kind of computer you want the app on (a Windows app must be built on Windows, a
-Mac app on a Mac):
-
-    python3 _internal/app_src/build_app.py      (Mac / Linux)
-    py _internal\app_src\build_app.py           (Windows)
-
-It needs Python 3.11 - 3.14 and puts the finished "FOT App" in this folder.
-
-To run from source without building:
-    python3 _internal/app_src/desktop.py
-(after installing _internal/app_src/requirements.txt into that Python).
+Take a screenshot of the black/terminal window and send it to whoever looks
+after the app. The app also writes a log to _internal/app_src/data/desktop.log.

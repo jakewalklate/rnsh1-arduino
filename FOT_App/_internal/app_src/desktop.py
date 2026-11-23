@@ -137,6 +137,8 @@ def streamlit_args(port):
         # Files do not change under a running copy; watching them only lets a
         # half-finished edit or a copy of the folder leave the app in a mixed state.
         "--server.fileWatcherType", "none",
+        # No Deploy button or developer menu (also set in .streamlit/config.toml).
+        "--client.toolbarMode", "minimal",
     ]
 
 
@@ -215,8 +217,39 @@ def stop_server(server):
         server.kill()
 
 
+def probe_linux_window():
+    """The --probe-window child: can Qt open a window on this Linux PC? Run apart from
+    the launcher because Qt aborts the whole process, rather than raising an error,
+    when a system library it needs (e.g. libxcb-cursor0) is missing."""
+    from qtpy import QtWebEngineWidgets  # noqa: F401  (must precede QApplication)
+    from qtpy.QtWidgets import QApplication
+
+    QApplication([])
+    sys.exit(0)
+
+
+def linux_window_works():
+    if FROZEN:
+        command = [sys.executable, "--probe-window"]
+    else:
+        command = [sys.executable, str(Path(__file__).resolve()), "--probe-window"]
+    try:
+        result = subprocess.run(command, capture_output=True, timeout=30)
+    except Exception as error:
+        log(f"Could not test the app window: {error}")
+        return False
+    if result.returncode != 0:
+        detail = (result.stderr or b"").decode(errors="replace").strip().splitlines()[-1:]
+        log(f"The app window cannot open on this PC ({' '.join(detail)}).")
+        return False
+    return True
+
+
 def open_window(url):
     """Show the app in a native window. Returns False if no window could be opened."""
+    if sys.platform.startswith("linux") and not linux_window_works():
+        log("Opening the app in the web browser instead.")
+        return False
     try:
         import webview
     except ImportError:
@@ -306,6 +339,9 @@ def ensure_desktop_shortcut():
 def main(argv):
     if len(argv) >= 2 and argv[0] == "--serve":
         serve(int(argv[1]))
+        return
+    if argv[:1] == ["--probe-window"]:
+        probe_linux_window()
         return
 
     ensure_desktop_shortcut()

@@ -16,3 +16,8 @@ font = "sans serif"
 # Outline every input box so it stays visible on the white panels.
 showWidgetBorder = true
 borderColor = "#d5dbe3"
+
+[client]
+# "minimal": no Deploy button or developer menu; this app is never deployed to
+# Streamlit Cloud.
+toolbarMode = "minimal"
