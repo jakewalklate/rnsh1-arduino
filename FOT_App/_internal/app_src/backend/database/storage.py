@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from backend.config import RAW_MEASUREMENT_DATA_DIR
+from backend.config import DEFAULT_EXCITATION_HZ, RAW_MEASUREMENT_DATA_DIR
 
 DB_NAME = Path(__file__).resolve().parents[2] / "system.db"
 DATETIME_FORMAT = "%d/%m/%Y %H:%M:%S"
@@ -165,6 +165,15 @@ def ensure_measurement_columns(cursor):
             ADD COLUMN cpap_pressure_cmH2O REAL
         """)
 
+    # The excitation frequency the Arduino confirmed for this measurement, for the
+    # same reason as CPAP: a test's measurements can be taken at different
+    # frequencies. NULL means the measurement predates this column.
+    if "excitation_hz" not in existing_columns:
+        cursor.execute("""
+            ALTER TABLE measurements
+            ADD COLUMN excitation_hz REAL
+        """)
+
 
 def ensure_test_parameter_columns(cursor):
     cursor.execute("PRAGMA table_info(test_parameters)")
@@ -180,6 +189,12 @@ def ensure_test_parameter_columns(cursor):
         cursor.execute("""
             ALTER TABLE test_parameters
             ADD COLUMN max_duration_seconds INTEGER
+        """)
+
+    if "excitation_hz" not in existing_columns:
+        cursor.execute("""
+            ALTER TABLE test_parameters
+            ADD COLUMN excitation_hz REAL
         """)
 
 
@@ -571,7 +586,8 @@ def create_test(patient_id,
 def save_test_parameters(
     test_id,
     cpap_pressure_cmH2O=5.0,
-    max_duration_seconds=None
+    max_duration_seconds=None,
+    excitation_hz=DEFAULT_EXCITATION_HZ,
 ):
     conn = get_connection()
     cursor = conn.cursor()
@@ -585,12 +601,14 @@ def save_test_parameters(
             epap_cmH2O,
             cpap_pressure_cmH2O,
             max_duration_seconds,
+            excitation_hz,
             updated_datetime
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(test_id) DO UPDATE SET
             cpap_pressure_cmH2O = excluded.cpap_pressure_cmH2O,
             max_duration_seconds = excluded.max_duration_seconds,
+            excitation_hz = excluded.excitation_hz,
             updated_datetime = excluded.updated_datetime
     """, (
         test_id,
@@ -600,6 +618,7 @@ def save_test_parameters(
         5.0,
         float(cpap_pressure_cmH2O),
         max_duration_seconds,
+        float(excitation_hz),
         datetime.now().strftime(DATETIME_FORMAT)
     ))
 
@@ -614,7 +633,8 @@ def get_test_parameters(test_id):
     cursor.execute("""
         SELECT
             cpap_pressure_cmH2O,
-            max_duration_seconds
+            max_duration_seconds,
+            excitation_hz
         FROM test_parameters
         WHERE test_id = ?
     """, (test_id,))
@@ -627,11 +647,14 @@ def get_test_parameters(test_id):
         return {
             "cpap_pressure_cmH2O": 5.0,
             "max_duration_seconds": None,
+            "excitation_hz": DEFAULT_EXCITATION_HZ,
         }
 
     return {
         "cpap_pressure_cmH2O": row[0],
         "max_duration_seconds": row[1],
+        # Tests saved before the frequency could be chosen get the current default.
+        "excitation_hz": row[2] if row[2] is not None else DEFAULT_EXCITATION_HZ,
     }
 
 # Get a test
@@ -851,7 +874,7 @@ def get_next_measurement_number(test_id):
 
     return count + 1
 
-def create_measurement(test_id, cpap_pressure_cmH2O=None):
+def create_measurement(test_id, cpap_pressure_cmH2O=None, excitation_hz=None):
     """`cpap_pressure_cmH2O` is the pressure in force when THIS measurement started.
     Recorded per measurement because the test-level parameter row is overwritten
     whenever the operator reconfigures, so it cannot describe a test whose measurements
@@ -871,9 +894,10 @@ def create_measurement(test_id, cpap_pressure_cmH2O=None):
             ended_datetime,
             duration_seconds,
             status,
-            cpap_pressure_cmH2O
+            cpap_pressure_cmH2O,
+            excitation_hz
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         measurement_id,
         test_id,
@@ -883,6 +907,7 @@ def create_measurement(test_id, cpap_pressure_cmH2O=None):
         None,
         "Recording",
         None if cpap_pressure_cmH2O is None else float(cpap_pressure_cmH2O),
+        None if excitation_hz is None else float(excitation_hz),
     ))
 
     cursor.execute("""
@@ -1393,7 +1418,8 @@ def get_test_measurements(test_id):
             ended_datetime,
             duration_seconds,
             status,
-            cpap_pressure_cmH2O
+            cpap_pressure_cmH2O,
+            excitation_hz
         FROM measurements
         WHERE test_id = ?
           AND duration_seconds IS NOT NULL

@@ -222,6 +222,12 @@ class CalibrationWorkflowTests(unittest.TestCase):
             def reset_input_buffer(self):
                 self.reset_calls += 1
 
+            def configure(self, **_kwargs):
+                pass
+
+            def wait_for_frequency_ack(self, hz):
+                return hz
+
             def start_streaming(self, **_kwargs):
                 self.start_calls += 1
 

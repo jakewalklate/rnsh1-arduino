@@ -157,6 +157,13 @@ class ResultsSwapTests(unittest.TestCase):
         self.assertIs(results_on_basis(self.RESULTS, False, {}), self.RESULTS)
 
 
+class ToggleDefaultTests(unittest.TestCase):
+    def test_results_page_opens_with_correction_off(self):
+        # Handover report section 3: the polynomial is invalid for oscillating flow.
+        from frontend.views.tests.test_results import BIAS_CORRECTION_DEFAULT_ON
+        self.assertFalse(BIAS_CORRECTION_DEFAULT_ON)
+
+
 class ReproducibilityVerdictTests(unittest.TestCase):
     """A negative CoV must never be reported as good reproducibility. It appears when
     the correction over-subtracts a take into negative mean resistance, which really

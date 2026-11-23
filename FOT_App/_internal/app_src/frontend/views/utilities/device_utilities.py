@@ -5,6 +5,7 @@ from frontend.views.utilities.calibration import (
     calibration_tab,
     get_calibration_service,
 )
+from frontend.views.utilities.gain_phase_calibration import gain_phase_calibration_tab
 from frontend.views.utilities.flow_calibration import (
     flow_calibration_tab,
     get_flow_calibration_service,
@@ -47,12 +48,12 @@ def _leave_utility_page():
 
 
 def _render_page_header(title):
-    title_col, back_col = st.columns([6, 1])
-    with title_col:
-        st.title(title)
-    with back_col:
-        st.space("small")
-        if st.button("Return Home", width="stretch", key=f"{title}_return_home"):
+    # A wrapping row rather than fixed columns, so the button keeps its size and
+    # drops under the title on a narrow window instead of being squashed.
+    with st.container(horizontal=True, vertical_alignment="center"):
+        st.title(title, width="content")
+        st.space("stretch")
+        if st.button("Return Home", key=f"{title}_return_home"):
             _leave_utility_page()
             goto("home")
 
@@ -60,11 +61,11 @@ def _render_page_header(title):
 def device_calibration_page():
     _render_page_header("Device Calibration")
 
-    calibration_view, flow_view = st.tabs(
-        ["Device Calibration", "Flow Calibration"]
+    gain_phase_view, flow_view = st.tabs(
+        ["Gain & Phase Calibration", "Flow Calibration"]
     )
-    with calibration_view:
-        calibration_tab()
+    with gain_phase_view:
+        gain_phase_calibration_tab()
     with flow_view:
         flow_calibration_tab()
 

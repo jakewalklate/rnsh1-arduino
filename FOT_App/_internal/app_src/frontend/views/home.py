@@ -1,5 +1,6 @@
 import streamlit as st
 
+from frontend.components.ui import card, card_header, hero
 from frontend.navigation import goto
 from frontend.views.utilities.device_utilities import (
     device_calibration_page,
@@ -19,41 +20,47 @@ HOME_TABS = {
 
 
 def render_home_page():
-    st.title("OSCAR Measurement System")
+    hero(
+        "OSCAR Measurement System",
+        "Forced oscillation measurements for patients on CPAP. Start a test for a new "
+        "or existing patient, or check and calibrate the device.",
+    )
 
-    col_left, col_right = st.columns([6, 1], gap="medium")
+    col_left, col_right = st.columns([7, 2], gap="small")
 
-    # Create new test section
     with col_left:
-        st.subheader("Create New Test")
-        st.caption("Create a new test for a patient by selecting an existing patient or adding a new one.")
+        with card("new-test", "accent"):
+            card_header(
+                "Create new test",
+                "Add a new patient, or pick an existing one, to start a test.",
+            )
 
-        default_home_tab = HOME_TABS.get(
-            st.session_state.get("home_tab"),
-            HOME_TABS["new_patient"]
-        )
+            default_home_tab = HOME_TABS.get(
+                st.session_state.get("home_tab"),
+                HOME_TABS["new_patient"]
+            )
 
-        tab_new, tab_existing = st.tabs([
-            HOME_TABS["new_patient"],
-            HOME_TABS["existing_patients"],
-        ], default=default_home_tab)
+            tab_new, tab_existing = st.tabs([
+                HOME_TABS["new_patient"],
+                HOME_TABS["existing_patients"],
+            ], default=default_home_tab)
 
-        with tab_new:
-            create_patient_tab()
+            with tab_new:
+                create_patient_tab()
 
-        with tab_existing:
-            existing_patient_tab()
+            with tab_existing:
+                existing_patient_tab()
 
-    # Device utilities section
     with col_right:
-        st.subheader("Utilities")
-        st.caption("Verify & Calibrate")
-        utility_tab = st.tabs(["Tools:"], default="")[0]
-        with utility_tab:
-            if st.button("System Check", width="stretch"):
+        with card("tools"):
+            card_header("Device tools", "Check and calibrate the device.")
+            if st.button("System Check", width="stretch", type="primary"):
                 goto("system_check")
+            st.caption("Daily check against the test object.")
             if st.button("Calibrate Device", width="stretch"):
                 goto("device_calibration")
+            st.caption("After changing the pneumotach, flow sensor, tubing or speaker.")
+
 
 def render_app():
     page = st.session_state.page

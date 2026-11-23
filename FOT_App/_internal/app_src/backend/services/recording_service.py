@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from time import sleep
 
-from backend.config import ARDUINO_ENABLED, ARDUINO_RECONNECT_DELAY_SECONDS
+from backend.config import (
+    ARDUINO_ENABLED,
+    ARDUINO_RECONNECT_DELAY_SECONDS,
+    DEFAULT_EXCITATION_HZ,
+)
 from backend.device.arduino_controller import ArduinoController
 
 
@@ -9,6 +13,8 @@ from backend.device.arduino_controller import ArduinoController
 class RecordingStartResult:
     hardware_enabled: bool
     message: str
+    # The excitation frequency the Arduino confirmed it is running.
+    excitation_hz: float | None = None
 
 
 class RecordingService:
@@ -20,7 +26,12 @@ class RecordingService:
     def is_recording(self):
         return self.controller is not None and self.controller.is_recording
 
-    def start_measurement(self, measurement_id, cpap_pressure_cmH2O=None):
+    def start_measurement(
+        self,
+        measurement_id,
+        cpap_pressure_cmH2O=None,
+        excitation_hz=DEFAULT_EXCITATION_HZ,
+    ):
         if not self.hardware_enabled:
             return RecordingStartResult(
                 hardware_enabled=False,
@@ -34,6 +45,7 @@ class RecordingService:
             self.controller.start_measurement(
                 measurement_id,
                 cpap_pressure_cmH2O=cpap_pressure_cmH2O,
+                excitation_hz=excitation_hz,
             )
         except Exception as first_error:
             self.disconnect()
@@ -43,6 +55,7 @@ class RecordingService:
                 self.controller.start_measurement(
                     measurement_id,
                     cpap_pressure_cmH2O=cpap_pressure_cmH2O,
+                    excitation_hz=excitation_hz,
                 )
             except Exception as second_error:
                 self.disconnect()
@@ -55,7 +68,8 @@ class RecordingService:
 
         return RecordingStartResult(
             hardware_enabled=True,
-            message="Arduino recording started.",
+            message=f"Arduino recording started at {self.controller.excitation_hz:g} Hz.",
+            excitation_hz=self.controller.excitation_hz,
         )
 
     def stop_measurement(self):

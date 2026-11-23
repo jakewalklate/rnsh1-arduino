@@ -1,7 +1,10 @@
 import streamlit as st
+from html import escape
+
 import pandas as pd
 from backend.database.storage import delete_patient, get_patient, search_patients, get_all_patients, create_test, get_patient_tests
 from utils import calculate_age
+from frontend.components.ui import card, card_header
 from frontend.navigation import goto
 
 # Confirm delete patient dialog
@@ -19,7 +22,7 @@ def confirm_delete_patient_dialog(patient_id, patient_name):
             "Delete Patient",
             type="primary",
             use_container_width=True,
-            key=f"confirm_delete_patient_{patient_id}"
+            key=f"danger_confirm_delete_patient_{patient_id}"
         ):
             delete_patient(patient_id)
 
@@ -45,56 +48,90 @@ def confirm_delete_patient_dialog(patient_id, patient_name):
             st.rerun()
 
 
-# Existing patient search and view
-def existing_patient_tab():
+PATIENTS_PER_PAGE = 20
 
-    query = st.text_input("Search for patient by name or ID", placeholder="Enter patient name or ID")
 
-    if query:
-        results = search_patients(query)
-    else:
-        results = get_all_patients()
-
-    if results:
-
-        # Convert to DataFrame
-        table_data = pd.DataFrame([
-            {
-                "Select": False,
-                "Patient ID": p[0],
-                "Name": f"{p[1]} {p[2]}"
-            }
-            for p in results
-        ])
-
-        edited_df = st.data_editor(
-            table_data,
-            width='stretch',
-            hide_index=True,
-            column_config={
-                "Select": st.column_config.CheckboxColumn("Select patient")
-            },
-            disabled=["Patient ID", "Name"]
+def _patient_row(patient):
+    patient_id, first_name, last_name, dob, sex = patient[:5]
+    try:
+        age = f"{calculate_age(dob)} yrs"
+    except Exception:
+        age = ""
+    with st.container(key=f"ui-row-{patient_id}"):
+        name_col, dob_col, sex_col, open_col = st.columns(
+            PATIENT_COLUMNS, vertical_alignment="center", gap="small"
         )
-
-        # Safety conversion
-        if not isinstance(edited_df, pd.DataFrame):
-            edited_df = pd.DataFrame(edited_df)
-
-        selected_rows = edited_df[edited_df["Select"].fillna(False)]
-
-        if not selected_rows.empty:
-            selected_id = selected_rows.iloc[0]["Patient ID"]
-
-            st.session_state.selected_patient_id = selected_id
+        name_col.markdown(
+            f'<div class="ui-row-name">{escape(f"{first_name} {last_name}")}</div>'
+            f'<div class="ui-row-sub">{escape(str(patient_id))}</div>',
+            unsafe_allow_html=True,
+        )
+        dob_col.markdown(
+            f'<div class="ui-row-value">{escape(str(dob or "—"))}</div>'
+            f'<div class="ui-row-sub">{escape(age)}</div>',
+            unsafe_allow_html=True,
+        )
+        sex_col.markdown(
+            f'<div class="ui-row-value">{escape(str(sex or "—"))}</div>',
+            unsafe_allow_html=True,
+        )
+        if open_col.button(
+            "Open",
+            icon=":material/chevron_right:",
+            icon_position="right",
+            key=f"open_patient_{patient_id}",
+            width="stretch",
+        ):
+            st.session_state.selected_patient_id = patient_id
             goto("patient_view")
             st.stop()
 
-    elif query:
-        st.warning("No patients found.")
 
-    else:
-        st.info("Start typing to search patients or view all records.")
+PATIENT_COLUMNS = [4, 3, 2, 1]
+
+
+# Existing patient search and list
+def existing_patient_tab():
+
+    query = st.text_input(
+        "Search for patient by name or ID",
+        placeholder="Enter patient name or ID",
+        icon=":material/search:",
+    )
+
+    results = search_patients(query) if query else get_all_patients()
+
+    if not results:
+        if query:
+            st.warning("No patients found.")
+        else:
+            st.info("No patients yet. Add one on the Add New Patient tab.")
+        return
+
+    shown_key = "patient_list_shown"
+    shown = st.session_state.get(shown_key, PATIENTS_PER_PAGE)
+
+    with st.container(key="ui-rows"):
+        with st.container(key="ui-rowhead"):
+            header = st.columns(PATIENT_COLUMNS, vertical_alignment="center", gap="small")
+            for col, label in zip(header, ("Patient", "DOB", "Sex", "")):
+                col.markdown(
+                    f'<div class="ui-row-head">{label}</div>', unsafe_allow_html=True
+                )
+        for patient in results[:shown]:
+            _patient_row(patient)
+
+    remaining = len(results) - shown
+    st.caption(
+        f"Showing {min(shown, len(results))} of {len(results)} "
+        f"patient{'s' if len(results) != 1 else ''}."
+    )
+    if remaining > 0 and st.button(
+        f"Show {min(remaining, PATIENTS_PER_PAGE)} more", key="patient_list_more"
+    ):
+        st.session_state[shown_key] = shown + PATIENTS_PER_PAGE
+        st.rerun()
+
 
 # Existing patient details and test history view
 def existing_patient_view():
@@ -116,42 +153,38 @@ def existing_patient_view():
 
     age = calculate_age(dob)
 
-    st.space("medium")
+    # Navigation row: back on the left, the main action on the right.
+    with st.container(horizontal=True, vertical_alignment="center"):
+        if st.button(
+            "Return to List",
+            icon=":material/arrow_back:",
+            key="return_to_list",
+        ):
+            st.session_state.home_tab = "existing_patients"
+            goto("home")
 
-    left, right = st.columns([3, 2])
+        st.space("stretch")
 
-    with left:
-        st.title(f"{first_name} {last_name}")
-        
-    with right:
-        st.space("small")
-        with st.container(horizontal=True, horizontal_alignment="right"):
-            if st.button("Start New Test", type="primary"):
-                test_id = create_test(st.session_state.selected_patient_id)
-                st.session_state.current_test_id = test_id
+        if st.button("Start New Test", type="primary", key="start_new_test"):
+            test_id = create_test(st.session_state.selected_patient_id)
+            st.session_state.current_test_id = test_id
 
-                st.session_state.show_start_dialog = True
-                st.session_state.show_config_dialog = False
-                st.session_state.show_stop_summary = False
-                st.session_state.delete_empty_test_on_cancel = True
-                st.session_state.recording = False
-                st.session_state.current_measurement_id = None
+            st.session_state.show_start_dialog = True
+            st.session_state.show_config_dialog = False
+            st.session_state.show_stop_summary = False
+            st.session_state.delete_empty_test_on_cancel = True
+            st.session_state.recording = False
+            st.session_state.current_measurement_id = None
 
-                goto("start_test")
-            
-            if st.button("Return to List"):
-                st.session_state.home_tab = "existing_patients"
-                goto("home")
+            goto("start_test")
 
+    st.title(f"{first_name} {last_name}")
+    st.caption(f"Patient {patient_id} · {sex} · {age} years")
 
+    col1, col2 = st.columns([1, 2], gap="medium")
 
-
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-
-        st.subheader("Patient Details")
-        st.caption("Patient information provided for reference.")
+    with col1, card("patient-details"):
+        card_header("Patient details")
 
         detail_rows = [
             {"Detail": "Patient ID", "Value": str(patient_id)},
@@ -189,7 +222,8 @@ def existing_patient_view():
             if st.button(
                 "Delete Patient",
                 type="primary",
-                use_container_width=True
+                use_container_width=True,
+                key="danger_delete_patient"
             ):
                 st.session_state.show_delete_patient_dialog = True
                 st.rerun()
@@ -200,9 +234,8 @@ def existing_patient_view():
                 f"{first_name} {last_name}"
             )
 
-    with col2: 
-        st.subheader("Previous Tests")
-        st.caption("Select a test to view detailed results.")
+    with col2, card("previous-tests", "accent"):
+        card_header("Previous tests", "Tick a test to open its results.")
 
         tests = get_patient_tests(patient_id)
 

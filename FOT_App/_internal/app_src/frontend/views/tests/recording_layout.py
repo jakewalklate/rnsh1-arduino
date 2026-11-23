@@ -34,6 +34,9 @@ def render_test_header(test_id, patient_name, test_status, elapsed):
     with header_left:
         st.title(test_id)
         st.caption(patient_name)
+        excitation_hz = st.session_state.get("recording_excitation_hz")
+        if st.session_state.recording and excitation_hz is not None:
+            st.caption(f"Arduino excitation: **{excitation_hz:g} Hz**")
 
     with header_right:
         marker_key = event_marker_key(test_id)

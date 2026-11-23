@@ -13,6 +13,7 @@ from backend.database.storage import (
 from backend.processing.FOTAcceptance import FLOOR, VALID_FRACTION_FLOOR
 from backend.processing.FOTImpedance import EXCITATION_HZ
 from backend.processing.FOTPipeline import process_measurement_csv
+from frontend.components.ui import card, card_header, section_label
 from frontend.navigation import goto
 
 # Fields that genuinely differ between the two calibration bases. Everything not listed
@@ -48,6 +49,8 @@ DELTA_DIRECTION_LABEL = "exp − insp"
 # guideline figure for adults, NOT a threshold the engine enforces anywhere — shown as
 # a reference next to the number rather than used to pass or fail a measurement.
 COV_R5_GUIDELINE = 0.10
+# Initial position of the results page's "Bias-flow correction" toggle.
+BIAS_CORRECTION_DEFAULT_ON = False
 
 
 def bias_toggle_key(measurement_id):
@@ -217,7 +220,8 @@ def cpap_display(cpap_pressure):
     return f"CPAP {float(cpap_pressure):.1f} cmH2O"
 
 
-def render_within_breath(results, bias_correction_on=True, cpap_pressure=None):
+def render_within_breath(results, bias_correction_on=True, cpap_pressure=None,
+                         excitation_hz=None, key="results"):
     """Henry's within-breath layout: the insp/exp pair and its difference on one row for
     resistance, the same for reactance, then reproducibility and the interpretation.
 
@@ -226,14 +230,15 @@ def render_within_breath(results, bias_correction_on=True, cpap_pressure=None):
     clean = results.get("clean_breath_count")
     total = results.get("breath_count")
 
-    st.markdown("#### Within-breath analysis")
+    section_label("Within-breath analysis")
     accepted = (
         f"Averaged over {clean} accepted breath{'s' if clean != 1 else ''}"
         if clean is not None else "Averaged over the accepted breaths"
     )
     basis = "bias-corrected" if bias_correction_on else "bias-flow correction OFF"
     st.caption(
-        f"{accepted} · {cpap_display(cpap_pressure)} · {basis} · {EXCITATION_HZ:g} Hz"
+        f"{accepted} · {cpap_display(cpap_pressure)} · {basis} · "
+        f"{(excitation_hz or EXCITATION_HZ):g} Hz"
     )
 
     r_cols = st.columns(3)
@@ -274,8 +279,9 @@ def render_within_breath(results, bias_correction_on=True, cpap_pressure=None):
         metric_value(results.get("tidal_volume_l"), " L"),
     )
 
-    st.divider()
-    render_interpretation(results, bias_correction_on)
+    with card(f"interpretation-{key}", "muted"):
+        section_label("Interpretation")
+        render_interpretation(results, bias_correction_on)
 
 
 def reproducibility_verdict(cov):
@@ -356,7 +362,7 @@ def confirm_delete_test_dialog(test_id, patient_id):
         if st.button(
             "Delete Test",
             type="primary",
-            key=f"confirm_delete_{test_id}",
+            key=f"danger_confirm_delete_{test_id}",
             width="stretch",
         ):
             deleted_patient_id = delete_test(test_id)
@@ -436,120 +442,147 @@ def test_view():
                 goto("patient_view")
 
 
-    st.subheader("Results")
-    measurements = get_test_measurements(test_id)
+    with card("results", "accent"):
+        card_header("Results")
+        measurements = get_test_measurements(test_id)
 
-    if measurements:
-        tab_labels = [f"Measurement {m[2]}" for m in measurements]
-        selected_measurement_id = st.session_state.get("selected_results_measurement_id")
-        default_tab = None
+        if measurements:
+            tab_labels = [f"Measurement {m[2]}" for m in measurements]
+            selected_measurement_id = st.session_state.get("selected_results_measurement_id")
+            default_tab = None
 
-        for label, measurement in zip(tab_labels, measurements):
-            if measurement[0] == selected_measurement_id:
-                default_tab = label
-                break
+            for label, measurement in zip(tab_labels, measurements):
+                if measurement[0] == selected_measurement_id:
+                    default_tab = label
+                    break
 
-        tabs = st.tabs(
-            tab_labels,
-            default=default_tab,
-            key=f"results_tabs_{test_id}_{selected_measurement_id or 'default'}",
-        )
+            tabs = st.tabs(
+                tab_labels,
+                default=default_tab,
+                key=f"results_tabs_{test_id}_{selected_measurement_id or 'default'}",
+            )
 
-        for tab, measurement in zip(tabs, measurements):
-            measurement_id = measurement[0]
-            # Index 7 is cpap_pressure_cmH2O, NULL for measurements recorded before it
-            # was stored per measurement.
-            cpap_pressure = measurement[7] if len(measurement) > 7 else None
-            # measurement_number = measurement[2]
-            # started_datetime = measurement[3]
-            # ended_datetime = measurement[4]
-            # measurement_duration = measurement[5]
-            # measurement_status = measurement[6]
+            for tab, measurement in zip(tabs, measurements):
+                measurement_id = measurement[0]
+                # Index 7 is cpap_pressure_cmH2O, NULL for measurements recorded before it
+                # was stored per measurement.
+                cpap_pressure = measurement[7] if len(measurement) > 7 else None
+                # Index 8 is the excitation frequency the Arduino confirmed, NULL for
+                # measurements recorded before it was stored.
+                excitation_hz = measurement[8] if len(measurement) > 8 else None
+                # measurement_number = measurement[2]
+                # started_datetime = measurement[3]
+                # ended_datetime = measurement[4]
+                # measurement_duration = measurement[5]
+                # measurement_status = measurement[6]
 
-            with tab:
-                results = get_measurement_results(measurement_id)
+                with tab:
+                    results = get_measurement_results(measurement_id)
 
-                # Toggle sits on the right of the measurement header, on the same row as
-                # the measurement id. Streamlit cannot place a widget inside the tab
-                # strip itself, so this is the closest position to what it labels.
-                header = st.container(horizontal=True)
-                with header:
-                    st.caption(f"{measurement_id} · {cpap_display(cpap_pressure)}")
-                    st.space("stretch")
+                    # Toggle sits on the right of the measurement header, on the same row as
+                    # the measurement id. Streamlit cannot place a widget inside the tab
+                    # strip itself, so this is the closest position to what it labels.
+                    header = st.container(horizontal=True)
+                    with header:
+                        frequency_text = (
+                            f" · {excitation_hz:g} Hz" if excitation_hz is not None else ""
+                        )
+                        st.caption(
+                            f"{measurement_id} · {cpap_display(cpap_pressure)}{frequency_text}"
+                        )
+                        st.space("stretch")
 
-                toggle_key = bias_toggle_key(measurement_id)
-                if toggle_key not in st.session_state:
-                    st.session_state[toggle_key] = True
+                    toggle_key = bias_toggle_key(measurement_id)
+                    if toggle_key not in st.session_state:
+                        # Off by default: the handover report (section 3) found the
+                        # flow-indexed polynomial was fitted under steady bench flow and
+                        # distorts patient and closed-circuit recordings, where flow
+                        # oscillates. Switch it on only to compare with the old basis.
+                        st.session_state[toggle_key] = BIAS_CORRECTION_DEFAULT_ON
 
-                scale_only = {}
-                if results:
-                    scale_only = ensure_scale_only_results(measurement_id, results)
+                    scale_only = {}
+                    if results:
+                        scale_only = ensure_scale_only_results(measurement_id, results)
 
-                with header:
-                    bias_correction_on = st.toggle(
-                        "Bias-flow correction",
-                        key=toggle_key,
-                        disabled=not scale_only,
-                        help="On applies the full bench calibration (advance "
-                             "calibration). Off keeps the gain calibration but drops "
-                             "the flow-indexed polynomial.",
-                    )
+                    with header:
+                        bias_correction_on = st.toggle(
+                            "Bias-flow correction",
+                            key=toggle_key,
+                            disabled=not scale_only,
+                            help="On applies the full bench calibration (advance "
+                                 "calibration). Off keeps the gain calibration but drops "
+                                 "the flow-indexed polynomial.",
+                        )
 
-                if results and not scale_only:
-                    st.caption(
-                        ":gray[●] Bias-flow-correction-off values are unavailable for "
-                        "this measurement — its raw recording could not be reprocessed."
-                    )
+                    if results and not scale_only:
+                        st.caption(
+                            ":gray[●] Bias-flow-correction-off values are unavailable for "
+                            "this measurement — its raw recording could not be reprocessed."
+                        )
 
-                results = results_on_basis(results, bias_correction_on, scale_only)
+                    results = results_on_basis(results, bias_correction_on, scale_only)
 
-                if not results:
-                    st.info(
-                        "No processing result has been saved for this measurement yet."
-                    )
-                elif has_within_breath(results):
-                    render_within_breath(results, bias_correction_on, cpap_pressure)
-                else:
-                    # Too few clean breaths to split the breath into its two phases, so
-                    # the engine reported a whole-record average instead. Show that, and
-                    # say why the within-breath panel is missing rather than showing
-                    # a grid of dashes.
-                    st.warning(
-                        "Not enough clean breaths for a within-breath analysis. "
-                        "Showing the whole-record average instead."
-                    )
-                    st.caption(
-                        "bias-corrected" if bias_correction_on
-                        else "bias-flow correction OFF"
-                    )
-                    fallback_cols = st.columns(3)
-                    fallback_cols[0].metric(
-                        r"$R_5$", metric_value(results["resistance_R5"])
-                    )
-                    fallback_cols[1].metric(
-                        r"$X_5$", metric_value(results["reactance_X5"])
-                    )
-                    fallback_cols[2].metric(
-                        r"$V_T$", metric_value(results["tidal_volume_l"], " L")
-                    )
+                    if (
+                        results
+                        and excitation_hz is not None
+                        and float(excitation_hz) != float(EXCITATION_HZ)
+                    ):
+                        st.warning(
+                            f"Recorded at {excitation_hz:g} Hz, but the analysis and its "
+                            f"calibration are set up for {EXCITATION_HZ:g} Hz only, so these "
+                            "values are not reliable."
+                        )
 
-                events = get_measurement_events(measurement_id)
+                    if not results:
+                        st.info(
+                            "No processing result has been saved for this measurement yet."
+                        )
+                    elif has_within_breath(results):
+                        render_within_breath(
+                            results, bias_correction_on, cpap_pressure, excitation_hz,
+                            key=str(measurement_id),
+                        )
+                    else:
+                        # Too few clean breaths to split the breath into its two phases, so
+                        # the engine reported a whole-record average instead. Show that, and
+                        # say why the within-breath panel is missing rather than showing
+                        # a grid of dashes.
+                        st.warning(
+                            "Not enough clean breaths for a within-breath analysis. "
+                            "Showing the whole-record average instead."
+                        )
+                        st.caption(
+                            "bias-corrected" if bias_correction_on
+                            else "bias-flow correction OFF"
+                        )
+                        fallback_cols = st.columns(3)
+                        fallback_cols[0].metric(
+                            r"$R_5$", metric_value(results["resistance_R5"])
+                        )
+                        fallback_cols[1].metric(
+                            r"$X_5$", metric_value(results["reactance_X5"])
+                        )
+                        fallback_cols[2].metric(
+                            r"$V_T$", metric_value(results["tidal_volume_l"], " L")
+                        )
 
-                if events:
-                    st.markdown("#### Events")
-                    st.dataframe(
-                        [
-                            {
-                                "Time": format_event_time(event["elapsed_seconds"]),
-                                "Note": event["note"],
-                            }
-                            for event in events
-                        ],
-                        hide_index=True,
-                        width="stretch",
-                    )
-    else:
-        st.info("No saved measurements recorded for this test.")
+                    events = get_measurement_events(measurement_id)
+
+                    if events:
+                        section_label("Events")
+                        st.dataframe(
+                            [
+                                {
+                                    "Time": format_event_time(event["elapsed_seconds"]),
+                                    "Note": event["note"],
+                                }
+                                for event in events
+                            ],
+                            hide_index=True,
+                            width="stretch",
+                        )
+        else:
+            st.info("No saved measurements recorded for this test.")
 
     with st.expander("Test Details", expanded=False):
         st.write(f"**Created:** {created_datetime}")
@@ -588,7 +621,7 @@ def test_view():
     if st.button(
         "Delete Test",
         type="primary",
-        key=f"open_delete_{test_id}"
+        key=f"danger_open_delete_{test_id}"
     ):
         st.session_state.show_delete_test_dialog = True
         st.rerun()

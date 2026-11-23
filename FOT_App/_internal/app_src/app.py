@@ -2,8 +2,8 @@ import streamlit as st
 
 from backend.database.storage import initialize_database
 from frontend.navigation import persist_state_to_url, restore_state_from_url
+from frontend.components.ui import inject_styles
 from frontend.views.home import render_app
-
 
 st.set_page_config(
     page_title="Oscillometry Measurement System",
@@ -17,13 +17,23 @@ st.markdown("""
     }
 
     .block-container {
-        padding-top: 1rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-        max-width: 80%;
+        padding-top: 1.5rem;
+        padding-left: clamp(1rem, 3vw, 2.5rem);
+        padding-right: clamp(1rem, 3vw, 2.5rem);
+        max-width: 1320px;
     }
+
+        .reportview-container {
+            margin-top: -2em;
+        }
+        #MainMenu {visibility: hidden;}
+        .stDeployButton {display:none;}
+        footer {visibility: hidden;}
+        #stDecoration {display:none;}
+        .stAppToolbar {display:none;}
 </style>
 """, unsafe_allow_html=True)
+inject_styles()
 
 initialize_database()
 

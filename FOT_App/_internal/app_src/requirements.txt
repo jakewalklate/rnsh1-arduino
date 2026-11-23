@@ -1,0 +1,15 @@
+# Python packages the app needs. build_app.py installs these when it builds the app.
+# Versions match the ones bundled in the Windows build.
+streamlit==1.61.1
+pyserial>=3.5
+numpy==2.5.1
+pandas==3.0.5
+plotly==6.9.0
+altair==6.2.2
+# The desktop window (desktop.py). Uses the system web viewer on Windows (Edge
+# WebView2) and macOS (WebKit); on Linux the Qt variant, whose packages come
+# ready-built (the GTK variant would need compiling).
+pywebview>=5.4; sys_platform != "linux"
+pywebview[qt]>=5.4; sys_platform == "linux"
+# Only needed for the standalone backend/processing/FlowSyringeCalibration.py script.
+matplotlib

@@ -56,8 +56,16 @@ ARDUINO_SEND_COMMANDS = True
 FIRMWARE_FLOW_GAIN_POS = 2.86
 FIRMWARE_FLOW_GAIN_NEG = 2.8428
 
-DEFAULT_EXCITATION_HZ = 6.0
-DEFAULT_SAMPLE_HZ = 420
+# Excitation frequencies the firmware accepts (allowedFrequency in the .ino), offered
+# in the recording's "Configure Test Parameters" dialog. The firmware outputs one
+# 70-entry sine table per cycle, so the sample rate is always frequency x 70.
+EXCITATION_FREQUENCY_OPTIONS_HZ = (5.0, 6.0, 11.0, 19.0)
+SAMPLES_PER_EXCITATION_CYCLE = 70
+DEFAULT_EXCITATION_HZ = 5.0
+DEFAULT_SAMPLE_HZ = DEFAULT_EXCITATION_HZ * SAMPLES_PER_EXCITATION_CYCLE
+# The impedance analysis and its calibration files are set up for this frequency
+# only (backend/processing/FOTImpedance.EXCITATION_HZ).
+ANALYSIS_EXCITATION_HZ = 6.0
 DEFAULT_DAC_AMPLITUDE = None
 
 RAW_MEASUREMENT_DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "measurements"

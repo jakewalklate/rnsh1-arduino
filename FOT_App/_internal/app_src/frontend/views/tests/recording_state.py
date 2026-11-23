@@ -115,6 +115,8 @@ def initialise_test_page_state(test_id):
             max_duration_seconds
         ),
         test_param_key(test_id, "config_custom_duration_minutes"): custom_duration_minutes,
+        test_param_key(test_id, "excitation_hz"): parameters["excitation_hz"],
+        test_param_key(test_id, "config_excitation_hz"): parameters["excitation_hz"],
         event_marker_key(test_id): [],
     }
 
@@ -140,6 +142,9 @@ def prepare_config_dialog_state(test_id):
         if max_duration_seconds is not None
         else MIN_CUSTOM_DURATION_MINUTES
     )
+    st.session_state[test_param_key(test_id, "config_excitation_hz")] = parameters[
+        "excitation_hz"
+    ]
 
 
 def save_config_dialog_state(test_id):
@@ -156,14 +161,20 @@ def save_config_dialog_state(test_id):
     else:
         max_duration_seconds = MAX_DURATION_OPTIONS[max_duration_label_value]
 
+    excitation_hz = float(
+        st.session_state[test_param_key(test_id, "config_excitation_hz")]
+    )
+
     save_test_parameters(
         test_id,
         cpap_pressure,
-        max_duration_seconds
+        max_duration_seconds,
+        excitation_hz,
     )
 
     st.session_state[test_param_key(test_id, "cpap_pressure_cmH2O")] = cpap_pressure
     st.session_state[test_param_key(test_id, "max_duration_seconds")] = max_duration_seconds
+    st.session_state[test_param_key(test_id, "excitation_hz")] = excitation_hz
 
 
 def should_delete_test_on_start_cancel(test_id):
@@ -191,6 +202,7 @@ def discard_empty_test_if_needed(test_id):
 def clear_recording_session_state():
     st.session_state.recording = False
     st.session_state.current_measurement_id = None
+    st.session_state.recording_excitation_hz = None
     st.session_state.recording_start_time = None
     st.session_state.recording_start_datetime = None
     st.session_state.recording_end_time = None

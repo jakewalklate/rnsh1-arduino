@@ -1,6 +1,7 @@
 import streamlit as st
 
 from backend.database.storage import get_patient, get_test
+from frontend.components.ui import card
 from frontend.navigation import goto
 from frontend.views.tests.recording_dialogs import (
     configure_test_parameters_dialog,
@@ -105,17 +106,19 @@ def new_test_page():
 
     render_active_dialogs()
     render_recording_page_styles()
-    render_test_header(
-        test_id,
-        patient_name,
-        test_status,
-        current_elapsed_seconds(),
-    )
+    with card("recording-header", "accent"):
+        render_test_header(
+            test_id,
+            patient_name,
+            test_status,
+            current_elapsed_seconds(),
+        )
 
-    if st.session_state.show_start_dialog or st.session_state.show_config_dialog:
-        st.info("Waveforms will update when a recording is active.")
-    else:
-        render_recording_runtime(test_id, test_status, max_duration_seconds)
+    with card("waveforms"):
+        if st.session_state.show_start_dialog or st.session_state.show_config_dialog:
+            st.info("Waveforms will update when a recording is active.")
+        else:
+            render_recording_runtime(test_id, test_status, max_duration_seconds)
 
     if st.session_state.recording or st.session_state.show_stop_summary:
         st.caption("Stop and save or discard the measurement before leaving this test.")

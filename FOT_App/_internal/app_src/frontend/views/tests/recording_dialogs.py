@@ -3,6 +3,8 @@ from datetime import datetime
 
 import streamlit as st
 
+from backend.config import ANALYSIS_EXCITATION_HZ, EXCITATION_FREQUENCY_OPTIONS_HZ
+
 from backend.database.storage import (
     complete_measurement,
     create_measurement,
@@ -46,6 +48,14 @@ def configure_test_parameters_dialog():
         max_value=20.0,
         step=0.5,
         key=test_param_key(test_id, "config_cpap_pressure_cmH2O")
+    )
+
+    st.selectbox(
+        "Excitation Frequency",
+        EXCITATION_FREQUENCY_OPTIONS_HZ,
+        format_func=lambda hz: f"{hz:g} Hz",
+        key=test_param_key(test_id, "config_excitation_hz"),
+        help="The Arduino is set to this frequency when you press Start Recording.",
     )
 
     st.selectbox(
@@ -103,6 +113,13 @@ def confirm_start_dialog():
         "If stopped early, the measurement must be discarded."
     )
 
+    st.write(f"**Excitation Frequency:** {parameters['excitation_hz']:g} Hz")
+    if float(parameters["excitation_hz"]) != ANALYSIS_EXCITATION_HZ:
+        st.caption(
+            f"The results analysis is calibrated for {ANALYSIS_EXCITATION_HZ:g} Hz only, "
+            f"so results recorded at {parameters['excitation_hz']:g} Hz are not reliable."
+        )
+
     st.write(f"**Recording Timer:** {max_duration_display(parameters['max_duration_seconds'])}")
 
     col1, col2 = st.columns(2)
@@ -126,12 +143,14 @@ def confirm_start_dialog():
             measurement_id = create_measurement(
                 st.session_state.current_test_id,
                 cpap_pressure_cmH2O=parameters["cpap_pressure_cmH2O"],
+                excitation_hz=parameters["excitation_hz"],
             )
 
             try:
-                get_recording_service().start_measurement(
+                start_result = get_recording_service().start_measurement(
                     measurement_id,
                     cpap_pressure_cmH2O=parameters["cpap_pressure_cmH2O"],
+                    excitation_hz=parameters["excitation_hz"],
                 )
             except Exception as error:
                 log_debug(f"[UI ERROR] start_measurement failed: {error}")
@@ -142,6 +161,8 @@ def confirm_start_dialog():
             st.session_state.delete_empty_test_on_cancel = False
             st.session_state[event_marker_key(st.session_state.current_test_id)] = []
             st.session_state.current_measurement_id = measurement_id
+            # The frequency the Arduino confirmed, shown on the live recording view.
+            st.session_state.recording_excitation_hz = start_result.excitation_hz
             st.session_state.recording = True
             st.session_state.recording_start_time = time.time()
             st.session_state.recording_start_datetime = datetime.now()
