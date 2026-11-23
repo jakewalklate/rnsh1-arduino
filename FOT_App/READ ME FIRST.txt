@@ -1,5 +1,5 @@
-Oscillometry Measurement System — Windows App
-==============================================
+Oscillometry Measurement System
+===============================
 
 This is a self-contained version of the app. No Python, no terminal, no
 "pip install" needed. Works on Windows 10 and Windows 11.
@@ -25,10 +25,33 @@ it open while you use the app, and close it (or just close the window) when
 you're done. Closing the browser tab does not stop the app; closing the
 console window does.
 
-The Arduino/sensor hardware connects exactly the same way it always did
-(USB cable, same COM port auto-detection). If Windows has never seen this
+The Arduino/sensor hardware connects over USB and is found automatically --
+no COM port to choose. The app looks for the board's USB ID first, and if
+several candidates are plugged in it asks each one for its status and picks
+the one running the FOT firmware. If it still can't decide, go to Device
+Calibration and press "Search for devices" to choose from a list. If Windows has never seen this
 Arduino before, it may need its USB driver installed the first time — same
 as before, this hasn't changed.
+
+MAC AND LINUX
+--------------
+FOT_App.exe only runs on Windows. On a Mac or Linux PC, run the same app
+from source (needs Python 3.11 - 3.14 from https://www.python.org;
+Python 3.15 is too new for some of the app's packages):
+
+  macOS:  double-click "Start FOT App (macOS).command". The first time,
+          macOS may block it: right-click it, choose Open, then Open.
+  Linux:  run  ./start_unix.sh  in a terminal.
+
+The first start takes a minute while it installs what it needs into a
+".venv" folder next to it; after that it starts straight away. The Arduino
+shows up as /dev/cu.usbmodem... on a Mac and /dev/ttyACM0 on Linux -- it's
+detected automatically just like on Windows. On Linux, if the device is
+found but can't be opened, add yourself to the serial group once:
+    sudo usermod -aG dialout $USER     (then log out and back in)
+
+Windows users can also run from source with "start_windows_from_source.bat"
+(useful after editing the code without rebuilding the .exe).
 
 DATA
 ----

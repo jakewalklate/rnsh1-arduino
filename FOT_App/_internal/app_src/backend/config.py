@@ -25,12 +25,23 @@ ARDUINO_PORT_HINTS = (
     "R4",
     "RA4M1",
     "Renesas",
+    # Native-USB boards (Uno R4, Leonardo, Due) get these device names on macOS
+    # (/dev/cu.usbmodem1101) and Linux (/dev/ttyACM0) whatever the description says.
+    "usbmodem",
+    "ttyACM",
 )
-# USB vendor IDs that identify the board regardless of which driver Windows attached.
+# USB vendor IDs that identify the board regardless of OS or of which driver it attached.
 # Checked BEFORE the text hints above, because when the Uno R4 binds to the generic
 # usbser.sys driver it reports itself as "USB Serial Device (COMn)" / "Microsoft" and
 # none of those hints match. 0x2341 = Arduino SA (the R4's VID), 0x2A03 = Arduino.org.
 ARDUINO_USB_VENDOR_IDS = (0x2341, 0x2A03)
+# Generic USB-serial chips used on clone boards: 0x1A86 = WCH CH340, 0x0403 = FTDI,
+# 0x10C4 = Silicon Labs CP210x. Other gadgets use these too, so a port with one of
+# these IDs is only accepted after the firmware answers a STATUS probe.
+ARDUINO_CLONE_USB_VENDOR_IDS = (0x1A86, 0x0403, 0x10C4)
+# When several candidate ports are present, open each one and send STATUS to find
+# the one running the FOT firmware (backend/device/firmware).
+ARDUINO_PROBE_PORTS = True
 ARDUINO_AUTO_DETECT_SINGLE_PORT = True
 ARDUINO_BAUDRATE = 115200
 ARDUINO_TIMEOUT_SECONDS = 0.05

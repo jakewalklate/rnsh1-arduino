@@ -10,7 +10,9 @@ import serial
 
 
 # ----------------------------- SETTINGS ------------------------------------
-PORT = "COM3"
+# None = find the Arduino automatically (Windows, macOS or Linux). To force a port,
+# set e.g. "COM3" (Windows), "/dev/cu.usbmodem1101" (macOS) or "/dev/ttyACM0" (Linux).
+PORT = None
 BAUD = 115200
 SAMPLE_HZ = 420.0  # MUST equal firmware EXCITATION_HZ * N_LUT (6.0 * 70 = 420). Mismatch scales the gain by fs_true/SAMPLE_HZ.
 SYRINGE_VOLUME_L = 3.0
@@ -21,6 +23,25 @@ ACTIVE_MARGIN_S = 0.15
 
 
 # ----------------------------- SERIAL --------------------------------------
+if PORT is None:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from backend.config import (
+        ARDUINO_CLONE_USB_VENDOR_IDS,
+        ARDUINO_PORT_HINTS,
+        ARDUINO_USB_VENDOR_IDS,
+    )
+    from backend.device.serial_device import resolve_arduino_port
+
+    PORT = resolve_arduino_port(
+        port_hints=ARDUINO_PORT_HINTS,
+        vendor_ids=ARDUINO_USB_VENDOR_IDS,
+        clone_vendor_ids=ARDUINO_CLONE_USB_VENDOR_IDS,
+        baudrate=BAUD,
+    )
+    print(f"Using Arduino on {PORT}")
+
 ser = serial.Serial(PORT, BAUD, timeout=0)
 serial_buffer = ""
 

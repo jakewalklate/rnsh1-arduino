@@ -2,6 +2,8 @@ from backend.config import (
     ARDUINO_AUTO_DETECT,
     ARDUINO_AUTO_DETECT_SINGLE_PORT,
     ARDUINO_USB_VENDOR_IDS,
+    ARDUINO_CLONE_USB_VENDOR_IDS,
+    ARDUINO_PROBE_PORTS,
     ARDUINO_BAUDRATE,
     ARDUINO_CONNECT_DELAY_SECONDS,
     ARDUINO_PORT,
@@ -29,6 +31,8 @@ class ArduinoController:
         port_hints=ARDUINO_PORT_HINTS,
         allow_single_port_fallback=ARDUINO_AUTO_DETECT_SINGLE_PORT,
         vendor_ids=ARDUINO_USB_VENDOR_IDS,
+        clone_vendor_ids=ARDUINO_CLONE_USB_VENDOR_IDS,
+        probe=ARDUINO_PROBE_PORTS,
         send_device_commands=ARDUINO_SEND_COMMANDS,
     ):
         self.client = ArduinoSerialClient(
@@ -41,6 +45,8 @@ class ArduinoController:
             port_hints=port_hints,
             allow_single_port_fallback=allow_single_port_fallback,
             vendor_ids=vendor_ids,
+            clone_vendor_ids=clone_vendor_ids,
+            probe=probe,
         )
         self.send_device_commands = send_device_commands
         self.recorder = None

@@ -12,11 +12,19 @@ import streamlit as st
 from backend.config import (
     ARDUINO_AUTO_DETECT,
     ARDUINO_AUTO_DETECT_SINGLE_PORT,
+    ARDUINO_BAUDRATE,
+    ARDUINO_CLONE_USB_VENDOR_IDS,
+    ARDUINO_PROBE_PORTS,
     ARDUINO_USB_VENDOR_IDS,
     ARDUINO_PORT,
     ARDUINO_PORT_HINTS,
 )
-from backend.device.serial_device import ArduinoSerialError, resolve_arduino_port
+from backend.device.serial_device import (
+    ArduinoSerialError,
+    remember_port,
+    resolve_arduino_port,
+    scan_for_arduinos,
+)
 from backend.processing.FOTImpedance import EXCITATION_HZ, REFERENCE_RESISTANCE
 from backend.processing.FOTCalibrationPresets import period_label
 from backend.processing.FOTPhaseCalibration import (
@@ -115,12 +123,69 @@ def _render_active_calibration(service):
         
 
 
+def _clear_device_selection():
+    st.session_state.pop("device_port", None)
+    st.session_state.pop("device_probe_failed", None)
+    st.session_state.pop("device_scan", None)
+    remember_port(None)
+
+
+def _render_device_search(service, disabled, key_prefix):
+    """Scan every serial port, ask each Arduino-like one for STATUS, let the user pick."""
+    if st.button(
+        "Search for devices",
+        key=f"{key_prefix}_scan_devices",
+        disabled=disabled,
+        help="Opens each Arduino-like serial port and checks whether the FOT "
+        "firmware answers. Takes a few seconds.",
+    ):
+        with st.spinner("Searching serial ports for the FOT device..."):
+            st.session_state["device_scan"] = scan_for_arduinos(
+                port_hints=ARDUINO_PORT_HINTS,
+                vendor_ids=ARDUINO_USB_VENDOR_IDS,
+                clone_vendor_ids=ARDUINO_CLONE_USB_VENDOR_IDS,
+                probe=True,
+                # Never open a port this app already holds; it would fail or, on
+                # macOS/Linux, steal half of the running stream.
+                skip_probe_devices=[service.port] if getattr(service, "client", None) else [],
+                baudrate=ARDUINO_BAUDRATE,
+            )
+
+    results = st.session_state.get("device_scan")
+    if results is None:
+        return
+    if not results:
+        st.warning(
+            "No Arduino-like USB serial ports were found. Check the USB cable and "
+            "that the board is powered, then search again."
+        )
+        return
+
+    labels = {item.port.device: item.label for item in results}
+    choice = st.selectbox(
+        "Detected devices",
+        options=list(labels),
+        format_func=labels.get,
+        key=f"{key_prefix}_scan_choice",
+        disabled=disabled,
+    )
+    if st.button("Use this device", key=f"{key_prefix}_use_scanned", disabled=disabled):
+        st.session_state["device_port"] = choice
+        st.session_state.pop("device_probe_failed", None)
+        st.session_state.pop("device_scan", None)
+        remember_port(choice)
+        st.rerun()
+
+
 def _render_port_selector(service, disabled, key_prefix="cal", render=True):
     preferred_port = (
         st.session_state.get("device_port")
         or service.port
         or ARDUINO_PORT
     )
+    # Probing opens ports and waits for a reply, so do it once per detection attempt
+    # rather than on every Streamlit rerun; "Refresh device" re-arms it.
+    probe = ARDUINO_PROBE_PORTS and not st.session_state.get("device_probe_failed")
     try:
         port = resolve_arduino_port(
             preferred_port=preferred_port,
@@ -128,8 +193,13 @@ def _render_port_selector(service, disabled, key_prefix="cal", render=True):
             port_hints=ARDUINO_PORT_HINTS,
             allow_single_port_fallback=ARDUINO_AUTO_DETECT_SINGLE_PORT,
             vendor_ids=ARDUINO_USB_VENDOR_IDS,
+            clone_vendor_ids=ARDUINO_CLONE_USB_VENDOR_IDS,
+            probe=probe,
+            baudrate=ARDUINO_BAUDRATE,
         )
     except ArduinoSerialError as error:
+        if probe:
+            st.session_state["device_probe_failed"] = True
         if render:
             st.error(str(error))
             if st.button(
@@ -137,11 +207,13 @@ def _render_port_selector(service, disabled, key_prefix="cal", render=True):
                 key=f"{key_prefix}_refresh_ports_empty",
                 disabled=disabled,
             ):
-                st.session_state.pop("device_port", None)
+                _clear_device_selection()
                 st.rerun()
+            _render_device_search(service, disabled, key_prefix)
         return None
 
     st.session_state["device_port"] = port
+    remember_port(port)
     if not render:
         return port
 
@@ -155,8 +227,11 @@ def _render_port_selector(service, disabled, key_prefix="cal", render=True):
             disabled=disabled,
             key=f"{key_prefix}_refresh_ports",
         ):
-            st.session_state.pop("device_port", None)
+            _clear_device_selection()
             st.rerun()
+
+    with st.expander("Use a different device"):
+        _render_device_search(service, disabled, key_prefix)
 
     return port
 
