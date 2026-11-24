@@ -127,6 +127,15 @@ h1 {{ letter-spacing: -0.01em; }}
 [data-testid="stDataFrame"], [data-testid="stDataEditor"] {{
     border-radius: 8px; overflow: hidden;
 }}
+/* st.divider() is a bare <hr> in a markdown block with 2em margins above and below.
+   In the home page's Device tools card that splits two short items, so keep it close:
+   only the normal gap between elements on each side. */
+[class*="st-key-ui-card-tools"] [data-testid="stMarkdownContainer"]:has(> hr:only-child) {{
+    margin-bottom: 0;
+}}
+[class*="st-key-ui-card-tools"] hr {{
+    margin: 0;
+}}
 /* ---- List rows (patient list) ---- */
 /* One bordered table (key ui-rows-<list>): a grey heading row (key ui-rowhead-<list>)
    and data rows (keys ui-row-<id>) built the same way, so their columns line up
