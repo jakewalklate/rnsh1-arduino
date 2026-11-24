@@ -2,6 +2,7 @@
 the parts that decide what runs: the port, the server command line, the --serve
 switch, and stopping the server however the window ends."""
 
+import os
 import socket
 import subprocess
 import sys
@@ -45,21 +46,30 @@ class ServerCommandTests(unittest.TestCase):
         command = popen.call_args.args[0]
         self.assertEqual(command[0], sys.executable)
         self.assertTrue(command[1].endswith("desktop.py"))
-        self.assertEqual(command[2:], ["--serve", "8600"])
-        # Its stdin is a pipe the parent holds, so it can exit if the parent dies.
-        self.assertEqual(popen.call_args.kwargs["stdin"], subprocess.PIPE)
+        # It is told the launcher's process ID, so it can exit if the launcher dies.
+        self.assertEqual(command[2:], ["--serve", "8600", str(os.getpid())])
+        # Its stdin is not a pipe: a thread blocked reading a stdin pipe deadlocks
+        # numpy's DLL loading on Windows, leaving the window blank.
+        self.assertEqual(popen.call_args.kwargs["stdin"], subprocess.DEVNULL)
 
     def test_packaged_build_runs_itself_with_serve(self):
         with patch.object(desktop, "FROZEN", True), patch("subprocess.Popen") as popen:
             desktop.start_server(8600)
-        self.assertEqual(popen.call_args.args[0], [sys.executable, "--serve", "8600"])
+        self.assertEqual(
+            popen.call_args.args[0], [sys.executable, "--serve", "8600", str(os.getpid())]
+        )
 
     def test_serve_switch_runs_the_server_not_the_window(self):
         with patch.object(desktop, "serve") as serve, \
                 patch.object(desktop, "open_window") as window:
-            desktop.main(["--serve", "8600"])
-        serve.assert_called_once_with(8600)
+            desktop.main(["--serve", "8600", "1234"])
+        serve.assert_called_once_with(8600, 1234)
         window.assert_not_called()
+
+    def test_waits_for_a_process_to_end(self):
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(0.5)"])
+        desktop.wait_for_process_exit(child.pid)
+        self.assertIsNotNone(child.wait(timeout=5))
 
 
 class LifecycleTests(unittest.TestCase):
