@@ -57,6 +57,7 @@ def render_home_page():
             if st.button("System Check", width="stretch", type="primary"):
                 goto("system_check")
             st.caption("Daily check against the test object.")
+            st.divider()
             if st.button("Calibrate Device", width="stretch"):
                 goto("device_calibration")
             st.caption("After changing the pneumotach, flow sensor, tubing or speaker.")
