@@ -163,14 +163,26 @@ def wait_for_process_exit(pid):
             return  # Already gone (or not ours to watch): treat as ended.
         kernel32.WaitForSingleObject(handle, INFINITE)
         return
+    is_our_parent = pid == os.getppid()
     while True:
+        # A process that has ended but not been collected (a "zombie") still answers
+        # os.kill(pid, 0). Collect it if it is our own child...
+        try:
+            ended, _ = os.waitpid(pid, os.WNOHANG)
+            if ended == pid:
+                return
+        except ChildProcessError:
+            pass  # Not our child.
+        # ...and if it was our parent, its death hands us to a new parent.
+        if is_our_parent and os.getppid() != pid:
+            return
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
             return
         except PermissionError:
             pass  # Exists but owned by someone else; keep waiting.
-        time.sleep(1)
+        time.sleep(0.5)
 
 
 def serve(port, parent_pid=None):
