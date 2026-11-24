@@ -4,7 +4,7 @@ from html import escape
 import pandas as pd
 from backend.database.storage import delete_patient, get_patient, search_patients, get_all_patients, create_test, get_patient_tests
 from utils import calculate_age
-from frontend.components.ui import card, card_header
+from frontend.components.ui import card, card_header, pill
 from frontend.navigation import goto
 
 # Confirm delete patient dialog
@@ -111,8 +111,8 @@ def existing_patient_tab():
     shown_key = "patient_list_shown"
     shown = st.session_state.get(shown_key, PATIENTS_PER_PAGE)
 
-    with st.container(key="ui-rows"):
-        with st.container(key="ui-rowhead"):
+    with st.container(key="ui-rows-patients"):
+        with st.container(key="ui-rowhead-patients"):
             header = st.columns(PATIENT_COLUMNS, vertical_alignment="center", gap="small")
             for col, label in zip(header, ("Patient", "DOB", "Sex", "")):
                 col.markdown(
@@ -131,6 +131,47 @@ def existing_patient_tab():
     ):
         st.session_state[shown_key] = shown + PATIENTS_PER_PAGE
         st.rerun()
+
+
+TEST_COLUMNS = [3, 3, 3, 3, 2]
+
+
+def _test_row(test):
+    """One test in a patient's Previous tests list. Columns of the tests table:
+    0 test_id, 2 created_datetime ("dd/mm/yyyy hh:mm:ss"), 7 recording_sessions
+    (saved measurements), 8 status."""
+    test_id, created, measurements, status = test[0], test[2], test[7], test[8]
+    date, _, time_of_day = str(created or "").partition(" ")
+    with st.container(key=f"ui-row-test-{test_id}"):
+        id_col, date_col, count_col, status_col, open_col = st.columns(
+            TEST_COLUMNS, vertical_alignment="center", gap="small"
+        )
+        id_col.markdown(
+            f'<div class="ui-row-name">{escape(str(test_id))}</div>',
+            unsafe_allow_html=True,
+        )
+        date_col.markdown(
+            f'<div class="ui-row-value">{escape(date or "—")}</div>'
+            f'<div class="ui-row-sub">{escape(time_of_day[:5])}</div>',
+            unsafe_allow_html=True,
+        )
+        count = int(measurements or 0)
+        count_col.markdown(
+            f'<div class="ui-row-value">{count}</div>', unsafe_allow_html=True
+        )
+        status_col.markdown(
+            pill(str(status or "—"), "pass" if status == "Complete" else "neutral"),
+            unsafe_allow_html=True,
+        )
+        if open_col.button(
+            "Open",
+            icon=":material/chevron_right:",
+            icon_position="right",
+            key=f"open_test_{test_id}",
+            width="stretch",
+        ):
+            st.session_state.current_test_id = test_id
+            goto("test_view")
 
 
 # Existing patient details and test history view
@@ -235,49 +276,19 @@ def existing_patient_view():
             )
 
     with col2, card("previous-tests", "accent"):
-        card_header("Previous tests", "Tick a test to open its results.")
+        card_header("Previous tests", "Open a test to see its results.")
 
         tests = get_patient_tests(patient_id)
 
         if tests:
-            table_data = [
-                {
-                    "Select": False,
-                    "Test ID": t[0],
-                    "Date": t[2],
-                    "Measurements": t[7],
-                }
-                for t in tests
-            ]
-
-            column_config = {
-                col: st.column_config.Column(width="stretch")
-                for col in ["Test ID", "Date", "Measurements"]
-            }
-            column_config["Select"] = st.column_config.CheckboxColumn("View", width="small")
-
-            edited_df = st.data_editor(
-                table_data,
-                width="stretch",
-                hide_index=True,
-                column_config={
-                    "Select": st.column_config.CheckboxColumn("View", width="small"),
-                    "Test ID": st.column_config.Column(width="stretch", alignment="left"),
-                    "Date": st.column_config.Column(width="stretch", alignment="left"),
-                    "Measurements": st.column_config.Column(width="stretch", alignment="left"),
-                },
-                disabled=["Test ID", "Date", "Measurements"]
-            )
-
-
-            if not isinstance(edited_df, pd.DataFrame):
-                edited_df = pd.DataFrame(edited_df)
-
-            selected_rows = edited_df[edited_df["Select"].fillna(False)]
-
-            if not selected_rows.empty:
-                st.session_state.current_test_id = selected_rows.iloc[0]["Test ID"]
-                goto("test_view")
-
+            with st.container(key="ui-rows-tests"):
+                with st.container(key="ui-rowhead-tests"):
+                    header = st.columns(TEST_COLUMNS, vertical_alignment="center", gap="small")
+                    for col, label in zip(header, ("Test", "Date", "Measurements", "Status", "")):
+                        col.markdown(
+                            f'<div class="ui-row-head">{label}</div>', unsafe_allow_html=True
+                        )
+                for test in tests:
+                    _test_row(test)
         else:
             st.info("No previous tests have been recorded.")

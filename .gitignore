@@ -9,3 +9,6 @@ FOT_App/_internal/app_src/data/desktop.log
 FOT_App/_internal/app_src/data/desktop_shortcut_created
 FOT_App/FOT App.app/
 FOT_App/_internal/app_src/data/edge-profile/
+FOT_App/_internal/app_src/data/backups/
+FOT_App/_internal/app_src/system.db-shm
+FOT_App/_internal/app_src/system.db-wal

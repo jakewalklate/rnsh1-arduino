@@ -308,11 +308,10 @@ def stop_summary_dialog():
             st.session_state.recording_duration = None
             st.session_state.show_start_dialog = True
             st.session_state.show_invalid_stop_dialog = False
-
-            update_test_status(
-                st.session_state.current_test_id,
-                "Waiting"
-            )
+            # No status change here: discard_measurement has already set the test to
+            # "Complete" if it still has saved measurements, or "Waiting" if not.
+            # Forcing "Waiting" here left tests with saved measurements showing
+            # "Waiting" (TEST0020).
 
             persist_state_to_url()
             st.rerun()

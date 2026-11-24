@@ -125,13 +125,14 @@ h1 {{ letter-spacing: -0.01em; }}
     border-radius: 8px; overflow: hidden;
 }}
 /* ---- List rows (patient list) ---- */
-/* One bordered table: a grey heading row (key ui-rowhead) and data rows (keys
-   ui-row-<id>) built the same way, so their columns line up exactly. */
-.st-key-ui-rows {{
+/* One bordered table (key ui-rows-<list>): a grey heading row (key ui-rowhead-<list>)
+   and data rows (keys ui-row-<id>) built the same way, so their columns line up
+   exactly. Used by the patient list and a patient's previous tests. */
+[class*="st-key-ui-rows"] {{
     gap: 0 !important; border: 1px solid {BORDER}; border-radius: 10px;
     overflow: hidden; background: #fff;
 }}
-.st-key-ui-rowhead {{
+[class*="st-key-ui-rowhead"] {{
     background: #f5f7fa; padding: 0.7rem 1rem; border-bottom: 1px solid {BORDER};
 }}
 /* Streamlit pulls each text block up by 1rem to cancel a paragraph's bottom margin.
@@ -142,16 +143,19 @@ h1 {{ letter-spacing: -0.01em; }}
     border-top: 1px solid {BORDER}; padding: 0.6rem 1rem;
     transition: background 0.12s ease;
 }}
-.st-key-ui-rowhead + div [class*="st-key-ui-row-"],
-.st-key-ui-rowhead + [class*="st-key-ui-row-"] {{ border-top: none; }}
+[class*="st-key-ui-rowhead"] + div [class*="st-key-ui-row-"],
+[class*="st-key-ui-rowhead"] + [class*="st-key-ui-row-"] {{ border-top: none; }}
 [class*="st-key-ui-row-"]:hover {{ background: {ACCENT_SOFT}; }}
 .ui-row-head {{
     font-size: 0.85rem; font-weight: 650; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }}
-.ui-row-name {{ font-weight: 650; color: #111827; line-height: 1.3; }}
+.ui-row-name {{
+    font-weight: 650; color: #111827; line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}}
 .ui-row-value {{
     color: #1f2937; line-height: 1.3; font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }}
 .ui-row-sub {{ font-size: 0.8rem; color: {MUTED}; line-height: 1.3; }}
 /* Keep each row on one line on a phone instead of stacking its cells. */
@@ -164,10 +168,12 @@ h1 {{ letter-spacing: -0.01em; }}
 .ui-row-head {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
 @media (max-width: 640px) {{
     [class*="st-key-ui-row"] [data-testid="stColumn"]:nth-child(3) {{ display: none; }}
+    /* Previous tests: Status goes too; ID, date and Open are what matters there. */
+    [class*="st-key-ui-rows-tests"] [data-testid="stColumn"]:nth-child(4) {{ display: none; }}
     [class*="st-key-ui-row"] [data-testid="stColumn"]:last-child {{
         flex: 0 0 5.3rem !important; width: 5.3rem !important;
     }}
-    [class*="st-key-ui-row-"], .st-key-ui-rowhead {{ padding-left: 0.6rem; padding-right: 0.6rem; }}
+    [class*="st-key-ui-row-"], [class*="st-key-ui-rowhead"] {{ padding-left: 0.6rem; padding-right: 0.6rem; }}
 }}
 
 /* ---- Destructive buttons: give the button a key starting "danger" ---- */

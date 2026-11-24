@@ -109,8 +109,8 @@ class SaveTests(unittest.TestCase):
 
         self.assertEqual(saved, [6.0])
         self.assertFalse((self.tmp / "phase_5.json").exists())
-        bias = json.loads((self.tmp / "bias_6.json").read_text())
-        phase = json.loads((self.tmp / "phase_6.json").read_text())
+        bias = json.loads((self.tmp / "bias_6.json").read_text(encoding="utf-8"))
+        phase = json.loads((self.tmp / "phase_6.json").read_text(encoding="utf-8"))
         self.assertAlmostEqual(bias["scale"], 13.62 / 12.0, places=3)
         self.assertEqual(bias["k_plumbing_poly"], [0.0])
         self.assertEqual(bias["k_x_poly"], [0.0])
