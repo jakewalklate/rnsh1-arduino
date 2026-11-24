@@ -142,20 +142,46 @@ def streamlit_args(port):
     ]
 
 
-def serve(port):
-    """Run the Streamlit server in this process (the --serve child)."""
-    # The parent holds our stdin open. If it dies without stopping us (crash, killed
-    # from Task Manager), stdin reaches end of file and the server exits with it, so
-    # no orphan keeps the Arduino's serial port open.
-    def exit_with_parent():
-        try:
-            while sys.stdin.read(1024):
-                pass
-        except Exception:
-            pass
-        os._exit(0)
+def wait_for_process_exit(pid):
+    """Block until process `pid` has ended."""
+    if sys.platform == "win32":
+        import ctypes
 
-    if sys.stdin is not None and not sys.stdin.isatty():
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        SYNCHRONIZE = 0x00100000
+        INFINITE = 0xFFFFFFFF
+        handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+        if not handle:
+            return  # Already gone (or not ours to watch): treat as ended.
+        kernel32.WaitForSingleObject(handle, INFINITE)
+        return
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        except PermissionError:
+            pass  # Exists but owned by someone else; keep waiting.
+        time.sleep(1)
+
+
+def serve(port, parent_pid=None):
+    """Run the Streamlit server in this process (the --serve child)."""
+    # If the launcher dies without stopping us (crash, killed from Task Manager), exit
+    # with it, so no orphan keeps the Arduino's serial port open. This watches the
+    # launcher's process ID. It must NOT block reading stdin: on Windows a thread
+    # stuck reading a pipe on stdin deadlocks any DLL that queries the standard
+    # handles while loading (numpy's does), so the app page never appeared.
+    if parent_pid:
+        def exit_with_parent():
+            try:
+                wait_for_process_exit(parent_pid)
+            except Exception:
+                return
+            os._exit(0)
+
         threading.Thread(target=exit_with_parent, daemon=True).start()
 
     os.chdir(APP_DIR)
@@ -167,10 +193,11 @@ def serve(port):
 
 
 def start_server(port):
+    serve_args = ["--serve", str(port), str(os.getpid())]
     if FROZEN:
-        command = [sys.executable, "--serve", str(port)]
+        command = [sys.executable, *serve_args]
     else:
-        command = [sys.executable, str(Path(__file__).resolve()), "--serve", str(port)]
+        command = [sys.executable, str(Path(__file__).resolve()), *serve_args]
     log_file = LOG_PATH.open("a", encoding="utf-8") if LOG_PATH.parent.exists() else None
     flags = 0
     if sys.platform == "win32":
@@ -178,7 +205,7 @@ def start_server(port):
     return subprocess.Popen(
         command,
         cwd=APP_DIR,
-        stdin=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
         stdout=log_file or subprocess.DEVNULL,
         stderr=subprocess.STDOUT,
         creationflags=flags,
@@ -206,10 +233,6 @@ def wait_until_ready(url, server):
 def stop_server(server):
     if server.poll() is not None:
         return
-    try:
-        server.stdin.close()
-    except Exception:
-        pass
     server.terminate()
     try:
         server.wait(timeout=5)
@@ -338,7 +361,8 @@ def ensure_desktop_shortcut():
 
 def main(argv):
     if len(argv) >= 2 and argv[0] == "--serve":
-        serve(int(argv[1]))
+        parent_pid = int(argv[2]) if len(argv) >= 3 else None
+        serve(int(argv[1]), parent_pid)
         return
     if argv[:1] == ["--probe-window"]:
         probe_linux_window()
