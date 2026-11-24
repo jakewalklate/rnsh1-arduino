@@ -73,7 +73,7 @@ class DialogTests(unittest.TestCase):
         source = (
             Path(__file__).resolve().parents[1]
             / "frontend" / "views" / "tests" / "recording_dialogs.py"
-        ).read_text()
+        ).read_text(encoding="utf-8")
         start = source.index('"Discard and Re-record"')
         block = source[start:source.index("st.rerun()", start)]
         self.assertIsNone(re.search(r'update_test_status\(', block))

@@ -224,7 +224,7 @@ class WindowsEdgeTests(unittest.TestCase):
 class InPageBlockingTests(unittest.TestCase):
     def test_app_page_runs_the_back_blocking_script(self):
         from pathlib import Path
-        source = (Path(desktop.__file__).parent / "app.py").read_text()
+        source = (Path(desktop.__file__).parent / "app.py").read_text(encoding="utf-8")
         self.assertIn("BLOCK_HISTORY_NAVIGATION_JS", source)
         self.assertIn("unsafe_allow_javascript=True", source)
 
