@@ -3,11 +3,17 @@
     python desktop.py
 
 starts the Streamlit server in a background process on a free local port, waits for
-it to answer, and opens it in a native window (pywebview: Edge WebView2 on Windows,
-WebKit on macOS, Qt WebEngine on Linux). The window has no address bar and no back
-or forward buttons, and the keyboard and mouse shortcuts for back and forward are
-switched off, so the app's own buttons are the only way to move between pages.
-Closing the window stops the server.
+it to answer, and opens it in a window with no address bar and no back or forward
+buttons:
+
+  * Windows: Microsoft Edge in app mode (Edge is on every Windows 10/11 PC). Not
+    pywebview, whose WebView2-through-.NET window showed only a white page there.
+  * macOS: pywebview (WebKit).
+  * Linux: pywebview (Qt WebEngine), if Qt can open a window on that PC.
+
+The keyboard and mouse shortcuts for back and forward are switched off by the app
+page itself (app.py runs BLOCK_HISTORY_NAVIGATION_JS), so they are off in any
+window. Closing the window stops the server.
 
 The same file is the entry point of the packaged Windows build (see
 build_windows.ps1). A frozen build has no separate Python to run Streamlit with, so
@@ -245,8 +251,89 @@ def linux_window_works():
     return True
 
 
+def find_edge():
+    """msedge.exe: on PATH, or in Program Files where Windows installs it."""
+    import shutil
+
+    found = shutil.which("msedge")
+    if found:
+        return found
+    for base in (
+        os.environ.get("ProgramFiles(x86)"),
+        os.environ.get("ProgramFiles"),
+        os.environ.get("LOCALAPPDATA"),
+    ):
+        if base:
+            candidate = Path(base) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+            if candidate.exists():
+                return str(candidate)
+    return None
+
+
+EDGE_PROFILE = APP_DIR / "data" / "edge-profile"
+
+
+def edge_profile_in_use(profile=EDGE_PROFILE):
+    """True while an Edge process has the app's profile open. Edge holds
+    <profile>/lockfile open while running; Windows refuses to delete an open file."""
+    lockfile = Path(profile) / "lockfile"
+    if not lockfile.exists():
+        return False
+    try:
+        lockfile.unlink()
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
+def edge_app_command(edge, url):
+    # Its own profile folder makes this a separate Edge process that lives exactly
+    # as long as the app window, so waiting for it tells us when the window closed,
+    # and the user's normal Edge windows, tabs and sign-in are untouched.
+    profile = EDGE_PROFILE
+    return [
+        edge,
+        f"--app={url}",
+        f"--user-data-dir={profile}",
+        f"--window-size={WINDOW_SIZE[0]},{WINDOW_SIZE[1]}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-features=msEdgeStartupBoost,Translate",
+        "--disable-background-mode",
+    ]
+
+
+def open_edge_window(url):
+    """Windows: the app in an Edge app-mode window. Blocks until it is closed.
+    Returns False if Edge is missing or could not start."""
+    edge = find_edge()
+    if not edge:
+        log("Microsoft Edge was not found.")
+        return False
+    command = edge_app_command(edge, url)
+    log(f"Opening the app window with {edge}")
+    started = time.monotonic()
+    try:
+        result = subprocess.run(command)
+    except OSError as error:
+        log(f"Could not start Microsoft Edge: {error}")
+        return False
+    if time.monotonic() - started < 3 and result.returncode != 0:
+        log(f"Microsoft Edge closed straight away (exit code {result.returncode}).")
+        return False
+    # Edge sometimes hands the window to another Edge process and returns at once.
+    # Keep the server running until nothing has the app's profile open any more.
+    while edge_profile_in_use():
+        time.sleep(1)
+    return True
+
+
 def open_window(url):
-    """Show the app in a native window. Returns False if no window could be opened."""
+    """Show the app in a window. Returns False if no window could be opened."""
+    if sys.platform == "win32":
+        return open_edge_window(url)
     if sys.platform.startswith("linux") and not linux_window_works():
         log("Opening the app in the web browser instead.")
         return False

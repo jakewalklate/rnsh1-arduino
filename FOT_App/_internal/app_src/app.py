@@ -34,6 +34,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 inject_styles()
+# No back/forward shortcuts (Alt+Left, Backspace, mouse side buttons...): the app's
+# own buttons do the navigation, and going back would skip their clean-up. Runs in
+# the page, so it works in every kind of app window and in a browser tab.
+from desktop import BLOCK_HISTORY_NAVIGATION_JS
+st.html(f"<script>{BLOCK_HISTORY_NAVIGATION_JS}</script>", unsafe_allow_javascript=True)
 
 initialize_database()
 
