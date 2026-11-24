@@ -2,7 +2,14 @@ import streamlit as st
 from html import escape
 
 import pandas as pd
-from backend.database.storage import delete_patient, get_patient, search_patients, get_all_patients, create_test, get_patient_tests
+from backend.database.storage import delete_patient, get_patient, search_patients, get_all_patients, create_test, get_patient_tests, get_test_measurements, get_measurement_results
+from backend.processing.MeasurementQuality import (
+    GOOD,
+    INSUFFICIENT,
+    USABLE,
+    best_quality,
+    sensors_near_full_scale,
+)
 from utils import calculate_age
 from frontend.components.ui import card, card_header, pill
 from frontend.navigation import goto
@@ -136,11 +143,35 @@ def existing_patient_tab():
 TEST_COLUMNS = [3, 3, 3, 3, 2]
 
 
+QUALITY_TAGS = {
+    GOOD: ("Good", "pass"),
+    USABLE: ("Usable", "warn"),
+    INSUFFICIENT: ("Not usable", "fail"),
+}
+
+
+def test_quality(test_id):
+    """(tag text, tag tone, sensors clipped) for one test, from its saved
+    measurements. The best measurement decides: one good measurement is enough.
+    The test's stored status is not used: "Complete" only means a measurement was
+    saved, not that it was any good."""
+    saved = [m for m in get_test_measurements(test_id) if m[6] == "Complete"]
+    if not saved:
+        return "No data", "neutral", False
+    results = [get_measurement_results(m[0]) for m in saved]
+    clipped = any(sensors_near_full_scale(r) for r in results)
+    quality = best_quality(results)
+    if quality is None:
+        return "No result", "neutral", clipped
+    text, tone = QUALITY_TAGS[quality]
+    return text, tone, clipped
+
+
 def _test_row(test):
     """One test in a patient's Previous tests list. Columns of the tests table:
     0 test_id, 2 created_datetime ("dd/mm/yyyy hh:mm:ss"), 7 recording_sessions
-    (saved measurements), 8 status."""
-    test_id, created, measurements, status = test[0], test[2], test[7], test[8]
+    (saved measurements)."""
+    test_id, created, measurements = test[0], test[2], test[7]
     date, _, time_of_day = str(created or "").partition(" ")
     with st.container(key=f"ui-row-test-{test_id}"):
         id_col, date_col, count_col, status_col, open_col = st.columns(
@@ -159,8 +190,10 @@ def _test_row(test):
         count_col.markdown(
             f'<div class="ui-row-value">{count}</div>', unsafe_allow_html=True
         )
+        text, tone, clipped = test_quality(test_id)
         status_col.markdown(
-            pill(str(status or "—"), "pass" if status == "Complete" else "neutral"),
+            pill(text, tone)
+            + ('<span class="ui-row-warn">⚠ Clipped</span>' if clipped else ""),
             unsafe_allow_html=True,
         )
         if open_col.button(
@@ -276,7 +309,11 @@ def existing_patient_view():
             )
 
     with col2, card("previous-tests", "accent"):
-        card_header("Previous tests", "Open a test to see its results.")
+        card_header(
+            "Previous tests",
+            "Quality is from each test's best measurement. "
+            "⚠ Clipped: a sensor hit its limit.",
+        )
 
         tests = get_patient_tests(patient_id)
 
@@ -284,7 +321,7 @@ def existing_patient_view():
             with st.container(key="ui-rows-tests"):
                 with st.container(key="ui-rowhead-tests"):
                     header = st.columns(TEST_COLUMNS, vertical_alignment="center", gap="small")
-                    for col, label in zip(header, ("Test", "Date", "Measurements", "Status", "")):
+                    for col, label in zip(header, ("Test", "Date", "Measurements", "Quality", "")):
                         col.markdown(
                             f'<div class="ui-row-head">{label}</div>', unsafe_allow_html=True
                         )

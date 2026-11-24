@@ -293,7 +293,7 @@ def flow_calibration_tab():
         ),
     )
 
-    left, right = st.columns([5, 4], gap="medium")
+    left, right = st.columns([5, 4], gap="small")
     with right:
         _render_saved_calibration(service)
 

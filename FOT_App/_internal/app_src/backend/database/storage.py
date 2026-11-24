@@ -777,14 +777,24 @@ def get_patient_tests(patient_id):
         SELECT *
         FROM tests
         WHERE patient_id = ?
-        ORDER BY created_datetime DESC
     """, (patient_id,))
 
     tests = cursor.fetchall()
 
     conn.close()
 
-    return tests
+    # Newest first. Sorted here, not with ORDER BY: created_datetime is stored as
+    # "dd/mm/yyyy hh:mm:ss" text, which SQL sorts by day of the month first
+    # (30/07 came before 24/11).
+    return sorted(tests, key=lambda test: _sortable_datetime(test[2]), reverse=True)
+
+
+def _sortable_datetime(text):
+    """A stored date/time as a datetime for sorting; unreadable ones sort oldest."""
+    try:
+        return datetime.strptime(text, DATETIME_FORMAT)
+    except (TypeError, ValueError):
+        return datetime.min
 
 # Update test status
 def update_test_status(test_id, status):

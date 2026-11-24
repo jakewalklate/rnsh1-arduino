@@ -68,7 +68,8 @@ def _render_in_use(entries):
             if calibrated else "Not calibrated",
             highlight=used,
         ))
-    tiles(items)
+    # Two per row: 5 and 6 Hz, then 11 and 19 Hz.
+    tiles(items, columns=2)
 
 
 def _render_inputs(disabled):
@@ -296,7 +297,7 @@ def gain_phase_calibration_tab():
             icon="✅",
         )
 
-    left, right = st.columns([5, 4], gap="medium")
+    left, right = st.columns([5, 4], gap="small")
     with left:
         _render_run_card(service, running, port)
     with right:
