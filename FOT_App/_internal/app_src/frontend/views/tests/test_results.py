@@ -10,8 +10,14 @@ from backend.database.storage import (
     get_test_measurements,
     save_scale_only_results,
 )
-from backend.processing.FOTAcceptance import FLOOR, VALID_FRACTION_FLOOR
+from backend.processing.FOTAcceptance import FLOOR
 from backend.processing.FOTImpedance import EXCITATION_HZ
+from backend.processing.MeasurementQuality import (
+    GOOD,
+    USABLE,
+    breath_counts,
+    measurement_quality,
+)
 from backend.processing.FOTPipeline import process_measurement_csv
 from frontend.components.ui import card, card_header, section_label
 from frontend.navigation import goto
@@ -171,22 +177,20 @@ def expiratory_load_verdict(drrs):
 
 
 def quality_verdict(results):
-    """Three-way verdict. FLOOR clean breaths is the engine's sufficiency rule (the ERS
-    "at least three breaths remaining" count), so below it the take really is
-    unusable. VALID_FRACTION_FLOOR is NOT a gate anywhere any more — here it only
-    separates "Good" from "Usable", i.e. it tells the operator the acquisition was
-    noisy without withholding its result. CoV is reported alongside but does not gate
-    the verdict."""
-    clean = results.get("clean_breath_count")
-    total = results.get("breath_count")
-    if clean is None or not total:
+    """Three-way verdict, from the shared rule in MeasurementQuality (the patient
+    page's quality tags use the same one). FLOOR clean breaths is the engine's
+    sufficiency rule (the ERS "at least three breaths remaining" count), so below it
+    the take really is unusable. VALID_FRACTION_FLOOR only separates "Good" from
+    "Usable": it tells the operator the acquisition was noisy without withholding
+    its result. CoV is reported alongside but does not gate the verdict."""
+    quality = measurement_quality(results)
+    if quality is None:
         return "—", None
-
-    fraction = clean / total
-    if clean >= FLOOR and fraction >= VALID_FRACTION_FLOOR:
+    clean, total = breath_counts(results)
+    if quality == GOOD:
         return "Good", "ok"
-    if clean >= FLOOR:
-        return f"Usable — only {fraction * 100:.0f}% of breaths were clean", "warn"
+    if quality == USABLE:
+        return f"Usable — only {clean / total * 100:.0f}% of breaths were clean", "warn"
     return f"Insufficient — {clean} clean breath(s), {FLOOR} needed", "bad"
 
 

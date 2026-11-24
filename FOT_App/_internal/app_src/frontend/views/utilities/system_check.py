@@ -177,7 +177,7 @@ def system_check_tab():
         ),
     )
 
-    left, right = st.columns([5, 4], gap="medium")
+    left, right = st.columns([5, 4], gap="small")
     with right:
         with card("check-howto"):
             card_header("How to run it")

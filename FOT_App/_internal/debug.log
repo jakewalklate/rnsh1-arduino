@@ -1724,3 +1724,28 @@
 [2026-11-24 12:08:46.631] [DEBUG] Probe got no firmware reply on COM5
 [2026-11-24 12:08:47.032] [DEBUG] Probe confirmed FOT firmware on COM5
 [2026-11-24 12:08:47.033] [DEBUG ARDUINO ERROR] # ERROR: no hardware timer channel available
+[2026-11-24 14:46:43.446] [DEBUG] Probe could not open COM5: Resource busy
+[2026-11-24 14:46:43.447] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:46:43.747] [DEBUG] Probe got no firmware reply on COM5
+[2026-11-24 14:46:44.148] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:46:44.149] [DEBUG ARDUINO ERROR] # ERROR: no hardware timer channel available
+[2026-11-24 14:47:20.190] [DEBUG] Probe could not open COM5: Resource busy
+[2026-11-24 14:47:20.191] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:47:20.491] [DEBUG] Probe got no firmware reply on COM5
+[2026-11-24 14:47:20.893] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:47:20.897] [DEBUG ARDUINO ERROR] # ERROR: no hardware timer channel available
+[2026-11-24 14:54:03.857] [DEBUG] Probe could not open COM5: Resource busy
+[2026-11-24 14:54:03.857] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:54:04.158] [DEBUG] Probe got no firmware reply on COM5
+[2026-11-24 14:54:04.558] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:54:04.560] [DEBUG ARDUINO ERROR] # ERROR: no hardware timer channel available
+[2026-11-24 14:57:22.644] [DEBUG] Probe could not open COM5: Resource busy
+[2026-11-24 14:57:22.645] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:57:22.945] [DEBUG] Probe got no firmware reply on COM5
+[2026-11-24 14:57:23.346] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 14:57:23.347] [DEBUG ARDUINO ERROR] # ERROR: no hardware timer channel available
+[2026-11-24 15:10:17.372] [DEBUG] Probe could not open COM5: Resource busy
+[2026-11-24 15:10:17.372] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 15:10:17.673] [DEBUG] Probe got no firmware reply on COM5
+[2026-11-24 15:10:18.073] [DEBUG] Probe confirmed FOT firmware on COM5
+[2026-11-24 15:10:18.075] [DEBUG ARDUINO ERROR] # ERROR: no hardware timer channel available

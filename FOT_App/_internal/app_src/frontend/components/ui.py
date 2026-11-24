@@ -17,6 +17,8 @@ PASS = "#1e8e5a"
 PASS_SOFT = "#e6f5ee"
 FAIL = "#c2410c"
 FAIL_SOFT = "#fdf0e9"
+WARN = "#b45309"
+WARN_SOFT = "#fef3c7"
 DANGER = "#c62828"
 DANGER_DARK = "#a51f1f"
 MUTED = "#6b7280"
@@ -72,6 +74,7 @@ header[data-testid="stHeader"] {{ background: transparent; pointer-events: none;
 }}
 .ui-pill.pass {{ background: {PASS_SOFT}; color: {PASS}; }}
 .ui-pill.fail {{ background: {FAIL_SOFT}; color: {FAIL}; }}
+.ui-pill.warn {{ background: {WARN_SOFT}; color: {WARN}; }}
 .ui-pill.info {{ background: {ACCENT_SOFT}; color: {ACCENT}; }}
 .ui-pill.neutral {{ background: #eef0f3; color: {MUTED}; }}
 .ui-hero .ui-pill {{ background: rgba(255, 255, 255, 0.95); }}
@@ -156,6 +159,10 @@ h1 {{ letter-spacing: -0.01em; }}
 .ui-row-value {{
     color: #1f2937; line-height: 1.3; font-variant-numeric: tabular-nums;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}}
+.ui-row-warn {{
+    font-size: 0.75rem; font-weight: 600; color: {WARN}; margin-left: 0.4rem;
+    white-space: nowrap;
 }}
 .ui-row-sub {{ font-size: 0.8rem; color: {MUTED}; line-height: 1.3; }}
 /* Keep each row on one line on a phone instead of stacking its cells. */
@@ -247,7 +254,7 @@ def section_label(text):
 
 
 def pill(text, tone="neutral"):
-    """HTML for a small status pill. tone: pass, fail, info or neutral."""
+    """HTML for a small status pill. tone: pass, warn, fail, info or neutral."""
     return f'<span class="ui-pill {tone}">{escape(text)}</span>'
 
 
@@ -279,5 +286,10 @@ def tile(title, rows, tone="neutral", badge="", note="", reason="", highlight=Fa
     )
 
 
-def tiles(items):
-    st.markdown(f'<div class="ui-tiles">{"".join(items)}</div>', unsafe_allow_html=True)
+def tiles(items, columns=None):
+    """A grid of tiles. By default as many per row as fit; columns=2 fixes two per
+    row (e.g. four frequencies as 2 x 2 rather than 3 + 1)."""
+    style = f' style="grid-template-columns: repeat({columns}, minmax(0, 1fr))"' if columns else ""
+    st.markdown(
+        f'<div class="ui-tiles"{style}>{"".join(items)}</div>', unsafe_allow_html=True
+    )
