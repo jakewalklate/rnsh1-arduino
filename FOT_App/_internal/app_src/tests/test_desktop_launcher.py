@@ -159,6 +159,66 @@ class PackagedAppTests(unittest.TestCase):
             run.assert_not_called()
 
 
+class WindowsEdgeTests(unittest.TestCase):
+    def test_windows_uses_edge_not_pywebview(self):
+        with patch.object(desktop.sys, "platform", "win32"), \
+                patch.object(desktop, "open_edge_window", return_value=True) as edge:
+            self.assertTrue(desktop.open_window("http://127.0.0.1:8501"))
+        edge.assert_called_once()
+
+    def test_edge_opens_an_app_window_with_its_own_profile(self):
+        command = desktop.edge_app_command("msedge.exe", "http://127.0.0.1:8501")
+        self.assertIn("--app=http://127.0.0.1:8501", command)
+        profile = [a for a in command if a.startswith("--user-data-dir=")]
+        self.assertEqual(len(profile), 1)
+        self.assertIn("edge-profile", profile[0])
+        self.assertIn("--no-first-run", command)
+
+    def test_missing_edge_falls_back(self):
+        with patch.object(desktop, "find_edge", return_value=None), \
+                patch.object(desktop, "log"):
+            self.assertFalse(desktop.open_edge_window("http://127.0.0.1:8501"))
+
+    def test_edge_that_fails_at_once_falls_back(self):
+        failed = MagicMock(returncode=1)
+        with patch.object(desktop, "find_edge", return_value="msedge.exe"), \
+                patch("subprocess.run", return_value=failed), \
+                patch.object(desktop, "log"):
+            self.assertFalse(desktop.open_edge_window("http://127.0.0.1:8501"))
+
+    def test_waits_while_edge_still_has_the_window(self):
+        # Edge returned at once (handed off), but the profile stays in use for two
+        # more checks: the server must not stop until it is free.
+        done = MagicMock(returncode=0)
+        with patch.object(desktop, "find_edge", return_value="msedge.exe"), \
+                patch("subprocess.run", return_value=done), \
+                patch.object(desktop, "edge_profile_in_use",
+                             side_effect=[True, True, False]) as in_use, \
+                patch.object(desktop.time, "sleep"), \
+                patch.object(desktop, "log"):
+            self.assertTrue(desktop.open_edge_window("http://127.0.0.1:8501"))
+        self.assertEqual(in_use.call_count, 3)
+
+    def test_profile_not_in_use_when_lockfile_can_be_removed(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(desktop.edge_profile_in_use(tmp))
+            (Path(tmp) / "lockfile").write_text("")
+            self.assertFalse(desktop.edge_profile_in_use(tmp))
+            (Path(tmp) / "lockfile").write_text("")
+            with patch("pathlib.Path.unlink", side_effect=PermissionError):
+                self.assertTrue(desktop.edge_profile_in_use(tmp))
+
+
+class InPageBlockingTests(unittest.TestCase):
+    def test_app_page_runs_the_back_blocking_script(self):
+        from pathlib import Path
+        source = (Path(desktop.__file__).parent / "app.py").read_text()
+        self.assertIn("BLOCK_HISTORY_NAVIGATION_JS", source)
+        self.assertIn("unsafe_allow_javascript=True", source)
+
+
 class BackNavigationTests(unittest.TestCase):
     def test_blocks_every_back_and_forward_shortcut(self):
         js = desktop.BLOCK_HISTORY_NAVIGATION_JS
