@@ -1,0 +1,20 @@
+{
+  "method": "gain_phase",
+  "reference_resistance_cmH2O_s_per_L": 8.535,
+  "correction_angle_deg": 12.092308202955717,
+  "raw_resistance_cmH2O_s_per_L": 8.181296804652586,
+  "raw_reactance_cmH2O_s_per_L": 1.7527693002482247,
+  "corrected_resistance_cmH2O_s_per_L": 8.366947927751868,
+  "corrected_reactance_cmH2O_s_per_L": 0.0,
+  "resistance_error_percent": -1.9689756560999676,
+  "blocks_used": 21,
+  "created_utc": "2026-11-25T05:42:53.193640+00:00",
+  "excitation_hz": 5.0,
+  "sample_hz": 350.0,
+  "block_samples": 420,
+  "quality_valid": true,
+  "quality_reason": "OK",
+  "block_variation_percent": 4.819286262233155,
+  "phase_pass": true,
+  "calibration_pass": true
+}

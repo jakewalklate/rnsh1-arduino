@@ -1,0 +1,24 @@
+{
+  "method": "gain_phase",
+  "excitation_hz": 5.0,
+  "reference_resistance": 8.535,
+  "scale": 1.020085229847162,
+  "k_plumbing": 0.0,
+  "k_x": 0.0,
+  "k_plumbing_poly": [
+    0.0
+  ],
+  "k_x_poly": [
+    0.0
+  ],
+  "x_residual_at_zero": 0.0,
+  "clamp_q_high": null,
+  "measured_resistance_cmH2O_s_per_L": 8.366947927751868,
+  "pressure_amplitude_cmH2O": 0.7794248936349868,
+  "flow_amplitude_lps": 0.09296217691517375,
+  "block_variation_percent": 4.819286262233155,
+  "phase_correction_deg": 12.092308202955717,
+  "phase_calibration_file": "fot_phase_calibration_5hz.json",
+  "saved_utc": "2026-11-25T05:42:53.193640+00:00",
+  "saved_from": "Gain & Phase Calibration"
+}
